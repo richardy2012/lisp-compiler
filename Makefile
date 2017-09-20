@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -O3 -funroll-loops -fforce-addr
+CFLAGS=-Wall -O3
 LDFLAGS=
 LIBS=-lm
 
@@ -34,4 +34,5 @@ clean_tests:
 
 clean:
 	rm -rf *.o
+	rm -f lisp
 

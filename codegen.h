@@ -13,6 +13,7 @@ struct asm_str;
 typedef struct asm_str {
     char *name;
     char *value;
+    unsigned int reserve;
     struct asm_str *next;
 } asm_str;
 extern asm_str *as_first, *as_last;

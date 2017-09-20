@@ -12,13 +12,15 @@ unsigned int uses_syswrite_stdout = 0,
 
 asm_str *as_first = NULL, *as_last = NULL;
 unsigned int asm_str_len = 0;
-char *add_asm_str(char *value) {
-    asm_str *cur = as_first;
-    while(cur != NULL) {
-        if(strcmp(value, cur->value) == 0) {
-            return cur->name;
+char *_add_asm_str(char *value, unsigned int reserve) {
+    if(value != NULL) {
+        asm_str *cur = as_first;
+        while(cur != NULL) {
+            if(strcmp(value, cur->value) == 0) {
+                return cur->name;
+            }
+            cur = cur->next;
         }
-        cur = cur->next;
     }
     
     asm_str *as = malloc(sizeof(asm_str));
@@ -29,7 +31,12 @@ char *add_asm_str(char *value) {
     as->name[1] = '\0';
     strcat(as->name, num);
     as->name[strlen(num) + 1] = '\0';
-    as->value = value;
+    if(reserve) {
+        as->reserve = reserve;
+    } else {
+        as->value = value;
+        as->reserve = 0;
+    }
     as->next = NULL;
     
     if(as_first == NULL) {
@@ -43,15 +50,12 @@ char *add_asm_str(char *value) {
     return as->name;
 }
 
+char *add_asm_str(char *str) {
+    return _add_asm_str(str, 0);
+}
+
 char *reserve_asm_str(int len) {
-    char str[len * 2 + 1];
-    unsigned int i;
-    for(i = 0; i < (len * 2); i += 2) {
-        str[i] = '\\';
-        str[i + 1] = '0';
-    }
-    str[len * 2] = '\0';
-    return add_asm_str(str);
+    return _add_asm_str(NULL, len);
 }
 
 void flush_asm_str() {
@@ -67,15 +71,19 @@ void flush_asm_str() {
 
 void print_asm_str(asm_str * str) {
     fprintf(asm_file, "%s:\n", str->name);
-    fprintf(asm_file, "    .ascii \"");
-    unsigned int i;
-    for(i = 0; i < strlen(str->value); i++) {
-        if(str->value[i] == '"')
-            fprintf(asm_file, "\\\"");
-        else
-            fputc(str->value[i], asm_file);
+    if(str->reserve) {
+        fprintf(asm_file, "    .space %i\n", str->reserve);
+    } else {
+        fprintf(asm_file, "    .ascii \"");
+        unsigned int i;
+        for(i = 0; i < strlen(str->value); i++) {
+            if(str->value[i] == '"')
+                fprintf(asm_file, "\\\"");
+            else
+                fputc(str->value[i], asm_file);
+        }
+        fprintf(asm_file, "\\0\"\n");
     }
-    fprintf(asm_file, "\\0\"\n");
 }
 
 void print_all_asm_str() {
