@@ -3,3 +3,4 @@
 /lisp
 /tests/*
 !/tests/*.lisp
+!/tests/*.expects

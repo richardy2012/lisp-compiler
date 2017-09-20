@@ -125,7 +125,7 @@ int asm_write_end() {
     if(uses_syswrite_stdout) {
         fprintf(asm_file, "syswrite_stdout:\n");
         fprintf(asm_file, "    mov $0x04, %%eax\n");
-        fprintf(asm_file, "    mov $0, %%ebx\n");
+        fprintf(asm_file, "    mov $1, %%ebx\n");
         fprintf(asm_file, "    int $0x80\n");
         fprintf(asm_file, "    ret\n");
     }
