@@ -1,2 +1,5 @@
 *.o
 *.s
+/lisp
+/tests/*
+!/tests/*.lisp
