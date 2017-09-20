@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <errno.h>
@@ -28,6 +30,7 @@ void mopen(char *argv[]) {
     } else { // parent
         mopen_status = 1;
         waitpid(pid, &mopen_status, 0);
+        if(mopen_status > 255) mopen_status -= 255;
     }
 }
 

@@ -3,7 +3,9 @@ CFLAGS=-Wall -O3
 LDFLAGS=
 LIBS=-lm
 
-TEST_FILES = tests/printf.bin tests/arithmetic.bin
+TEST_FILES = tests/printf.bin \
+             tests/arithmetic.bin \
+             tests/variable.bin
 .PHONY: tests
 
 %.o: %.c $(DEPS)

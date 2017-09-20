@@ -9,21 +9,33 @@ FILE *asm_file;
 char outputs[256]; // .s file
 
 // compiler string variables
-struct asm_str;
-typedef struct asm_str {
+struct asm_var;
+typedef struct asm_var {
     char *name;
-    char *value;
-    unsigned int reserve;
-    struct asm_str *next;
-} asm_str;
-extern asm_str *as_first, *as_last;
-extern unsigned int asm_str_len;
+    union {
+        int nint;
+        float nfloat;
+        char *string;
+        unsigned int reserve;
+    } value;
+    unsigned int type;
+    struct asm_var *next;
+} asm_var;
+#define ASM_VAR_NINT_TYPE   0
+#define ASM_VAR_NFLOAT_TYPE 1
+#define ASM_VAR_STRING_TYPE 2
+#define ASM_VAR_RES_TYPE    3
+extern asm_var *as_first, *as_last;
+extern unsigned int asm_var_len;
 
-char *add_asm_str(char *value);
-char *reserve_asm_str(int len);
-void flush_asm_str();
-void print_asm_str(asm_str * str);
-void print_all_asm_str();
+void add_asm_var(asm_var *as);
+char *add_asm_nint(int nint, char *name);
+char *add_asm_nfloat(float nfloat, char *name);
+char *add_asm_str(char *value, char *name);
+char *reserve_asm_var(int len, char *name);
+void flush_asm_var();
+void print_asm_var(asm_var * str);
+void print_all_asm_var();
 
 // code generator
 int asm_write(program *program, unsigned int force_stdout);

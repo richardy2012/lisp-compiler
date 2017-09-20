@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
     // clean
     free(source);
     program_destroy(program);
-    flush_asm_str();
+    flush_asm_var();
     return status;
 
 usage:
