@@ -7,6 +7,17 @@
 
 char *source = NULL;
 
+void parse_ws() {
+    while(parser_pos < strlen(source)) {
+        if(parser_getch() == ' '  ||
+           parser_getch() == '\t' ||
+           parser_getch() == '\n')
+            parser_pos++;
+        else
+            break;
+    }
+}
+
 value *parse_value() {
     deprintf("PARSE_VALUE\n");
     if(parser_pos >= strlen(source)) {
@@ -110,6 +121,7 @@ fn_args *parse_fn_args() {
     fn_arg *last = first;
     while(parser_getch() == ' ') {
         parser_pos++;
+        parse_ws();
         fn_arg *arg = parse_fn_arg();
         if(arg == NULL) {
             free(args);
@@ -136,7 +148,7 @@ fn_call *parse_fn_call() {
     
     char ch = parser_getch();
     char *name;
-    if(isalpha(ch) || ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
+    if(isalpha(ch) || is_op(ch)) {
         name = malloc(2);
         name[0] = ch;
         name[1] = 0;
@@ -167,6 +179,7 @@ fn_call *parse_fn_call() {
         return NULL;
     }
     parser_pos++;
+    parse_ws();
     
     if(parser_getch() == ')') {
         return call;
@@ -188,17 +201,6 @@ fn_call *parse_fn_call() {
     parser_pos++;
     
     return call;
-}
-
-void parse_ws() {
-    while(parser_pos < strlen(source)) {
-        if(parser_getch() == ' '  ||
-           parser_getch() == '\t' ||
-           parser_getch() == '\n')
-            parser_pos++;
-        else
-            break;
-    }
 }
 
 program *parse_program() {

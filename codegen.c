@@ -8,7 +8,8 @@ unsigned int uses_syswrite_stdout = 0,
              uses_strlen = 0,
              uses_atoi = 0,
              uses_itoa = 0,
-             uses_sbrk = 0;
+             uses_sbrk = 0,
+             uses_println = 0;
 
 asm_var *as_first = NULL, *as_last = NULL;
 unsigned int asm_var_len = 0;
@@ -160,6 +161,8 @@ int asm_write_end() {
     fprintf(asm_file, "    mov $0, %%ebx\n");
     fprintf(asm_file, "    call sysexit\n");
     
+    if(uses_println) add_asm_str("\n", "DNL");
+
     // stdlib
     // syscalls
     // sys_write
@@ -276,40 +279,58 @@ int asm_write_fn_call(fn_call *fn_call) {
     // TODO external calls
     fn_args *args = fn_call->args;
     deprintf("%s\n", fn_call->name);
-    if(strlen(fn_call->name) == 1 &&
-      (fn_call->name[0] == '+' ||
-       fn_call->name[0] == '-' ||
-       fn_call->name[0] == '*' ||
-       fn_call->name[0] == '/' ||
-       fn_call->name[0] == '%'
-      )) {
+    if(strlen(fn_call->name) == 1 && is_op(fn_call->name[0])) {
+        char operator = fn_call->name[0];
         asm_write_fn_arg(args->first);
         if(args->first->next == NULL) {
-            printf("Binary operator %c requires 2 arguments.\n", fn_call->name[0]);
+            printf("Binary operator %c requires 2 arguments.\n", operator);
             return 1;
         }
         asm_write_fn_arg(args->first->next);
-        if(fn_call->name[0] == '/' || fn_call->name[0] == '%') {
+        if(operator == '/' || operator == '%') {
             fprintf(asm_file, "    mov $0, %%edx\n");
             fprintf(asm_file, "    pop %%ebx\n");
             fprintf(asm_file, "    pop %%eax\n");
             fprintf(asm_file, "    div %%ebx\n");
         }
-        if (fn_call->name[0] == '/') {
+        if (operator == '/') {
             fprintf(asm_file, "    push %%eax\n");
             return 0;
-        } else if (fn_call->name[0] == '%') {
+        } else if (operator == '%') {
             fprintf(asm_file, "    push %%edx\n");
             return 0;
         } else {
             fprintf(asm_file, "    pop %%eax\n");
             fprintf(asm_file, "    pop %%ebx\n");
-            if(fn_call->name[0] == '+')
+            if(operator == '+')
                 fprintf(asm_file, "    add %%ebx, %%eax\n");
-            else if(fn_call->name[0] == '-')
+            else if(operator == '-')
                 fprintf(asm_file, "    sub %%eax, %%ebx\n");
-            else if(fn_call->name[0] == '*')
+            else if(operator == '*')
                 fprintf(asm_file, "    mul %%ebx\n");
+            else if(operator == '=' || operator == '<' || operator == '>') {
+                fprintf(asm_file, "    cmp %%eax, %%ebx\n");
+                if(operator == '=') {
+                    // https://www.aldeid.com/wiki/X86-assembly/Instructions/pushf
+                    fprintf(asm_file, "    pushf\n");
+                    fprintf(asm_file, "    pop %%eax\n");
+                    // get binary bit : (number >> position) & 1
+                    fprintf(asm_file, "    shr $6, %%eax\n"); // bit 6 == ZF
+                    fprintf(asm_file, "    and $1, %%eax\n");
+                    fprintf(asm_file, "    push %%eax\n");
+                } else if(operator == '<' || operator == '>') {
+                    fprintf(asm_file, "    mov $0, %%eax\n");
+                    fprintf(asm_file, "    adc $0, %%eax\n");
+                    if(operator == '>') // invert
+                        fprintf(asm_file, "    xor $1, %%eax\n");
+                    fprintf(asm_file, "    push %%eax\n");
+                }
+                return 0;
+            }
+            else {
+                printf("Unrecognized operator %c\n", operator);
+                return 1;
+            }
         }
         fprintf(asm_file, "    push %%eax\n");
     } else if (strcmp(fn_call->name, "define") == 0) {
@@ -353,7 +374,8 @@ int asm_write_fn_call(fn_call *fn_call) {
         fprintf(asm_file, "    call syswrite_stdout\n");
         
         if(strcmp(fn_call->name, "println") == 0) {
-            fprintf(asm_file, "    mov $%s, %%ecx\n", add_asm_str("\n", NULL));
+            uses_println = 1;
+            fprintf(asm_file, "    mov $DNL, %%ecx\n");
             fprintf(asm_file, "    mov $1, %%edx\n");
             fprintf(asm_file, "    call syswrite_stdout\n");
         }

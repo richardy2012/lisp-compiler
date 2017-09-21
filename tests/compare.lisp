@@ -1,0 +1,6 @@
+(println (itoa (< 1 2)))
+(println (itoa (> 1 2)))
+(println (itoa (= 6 6)))
+(println (itoa (= 6 7)))
+(println (itoa (= 10 6)))
+(println (itoa (= 50 50)))

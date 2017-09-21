@@ -46,11 +46,4 @@ int asm_write_fn_arg(fn_arg *arg);
 char *asm_write_value(value *val);
 int asm_write_end();
 
-extern unsigned int
-    uses_syswrite_stdout,
-    uses_strlen,
-    uses_atoi,
-    uses_itoa,
-    uses_sbrk;
-
 #endif

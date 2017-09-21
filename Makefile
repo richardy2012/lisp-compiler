@@ -5,7 +5,8 @@ LIBS=-lm
 
 TEST_FILES = tests/printf.bin \
              tests/arithmetic.bin \
-             tests/variable.bin
+             tests/variable.bin \
+             tests/compare.bin
 .PHONY: tests
 
 %.o: %.c $(DEPS)
@@ -15,13 +16,13 @@ all: main.o ast.o utils.o parser.o codegen.o
 	gcc $(CFLAGS) $(LDFLAGS) -o lisp $^ $(LIBS)
 
 %.bin: %.lisp
-	@./lisp -o $@ $<
-	@./$@ > ./$<.result
-	-@if [ "x$$(diff $<.result $<.expects | wc -l)" = "x0" ]; then \
-		echo "[PASS] $<"; \
+	-@./lisp -o $@ $<
+	-@./$@ > ./$<.result; \
+	if [ "x$$?" = "x0" ] && [ -e "$<.expects" ] && [ "x$$(diff $<.result $<.expects | wc -l)" = "x0" ]; then \
+		printf "\033[1m\033[32m[PASS]\033[0m $<\n"; \
 	else \
-		echo "[FAIL] $<"; \
-		diff $<.result $<.expects; \
+		printf "\033[1m\033[31m[FAIL]\033[0m $<\n"; \
+		if [ -e "$<.expects" ]; then diff $<.result $<.expects; else cat $<.result; fi; \
 	fi
 
 tests: clean_tests do_tests
