@@ -302,10 +302,10 @@ int asm_write_fn_call(fn_call *fn_call) {
             return 1;
         }
         asm_write_fn_arg(args->first->next);
+        fprintf(asm_file, "    pop %%ebx\n");
+        fprintf(asm_file, "    pop %%eax\n");
         if(operator == '/' || operator == '%') {
             fprintf(asm_file, "    mov $0, %%edx\n");
-            fprintf(asm_file, "    pop %%ebx\n");
-            fprintf(asm_file, "    pop %%eax\n");
             fprintf(asm_file, "    idiv %%ebx\n");
         }
         if (operator == '/') {
@@ -314,38 +314,33 @@ int asm_write_fn_call(fn_call *fn_call) {
         } else if (operator == '%') {
             fprintf(asm_file, "    push %%edx\n");
             return 0;
+        } else if(operator == '+')
+            fprintf(asm_file, "    add %%ebx, %%eax\n");
+        else if(operator == '-')
+            fprintf(asm_file, "    sub %%ebx, %%eax\n");
+        else if(operator == '*')
+            fprintf(asm_file, "    imul %%ebx\n");
+        else if(operator == '=' || operator == '<' || operator == '>') {
+            fprintf(asm_file, "    cmp %%eax, %%ebx\n");
+            if(operator == '=') {
+                // https://www.aldeid.com/wiki/X86-assembly/Instructions/pushf
+                fprintf(asm_file, "    pushf\n");
+                fprintf(asm_file, "    pop %%eax\n");
+                // get binary bit : (number >> position) & 1
+                fprintf(asm_file, "    shr $6, %%eax\n"); // bit 6 == ZF
+                fprintf(asm_file, "    and $1, %%eax\n");
+                fprintf(asm_file, "    push %%eax\n");
+            } else if(operator == '<' || operator == '>') {
+                fprintf(asm_file, "    mov $0, %%eax\n");
+                fprintf(asm_file, "    adc $0, %%eax\n");
+                if(operator == '<') // invert
+                    fprintf(asm_file, "    xor $1, %%eax\n");
+                fprintf(asm_file, "    push %%eax\n");
+            }
+            return 0;
         } else {
-            fprintf(asm_file, "    pop %%ebx\n");
-            fprintf(asm_file, "    pop %%eax\n");
-            if(operator == '+')
-                fprintf(asm_file, "    add %%ebx, %%eax\n");
-            else if(operator == '-')
-                fprintf(asm_file, "    sub %%ebx, %%eax\n");
-            else if(operator == '*')
-                fprintf(asm_file, "    imul %%ebx\n");
-            else if(operator == '=' || operator == '<' || operator == '>') {
-                fprintf(asm_file, "    cmp %%eax, %%ebx\n");
-                if(operator == '=') {
-                    // https://www.aldeid.com/wiki/X86-assembly/Instructions/pushf
-                    fprintf(asm_file, "    pushf\n");
-                    fprintf(asm_file, "    pop %%eax\n");
-                    // get binary bit : (number >> position) & 1
-                    fprintf(asm_file, "    shr $6, %%eax\n"); // bit 6 == ZF
-                    fprintf(asm_file, "    and $1, %%eax\n");
-                    fprintf(asm_file, "    push %%eax\n");
-                } else if(operator == '<' || operator == '>') {
-                    fprintf(asm_file, "    mov $0, %%eax\n");
-                    fprintf(asm_file, "    adc $0, %%eax\n");
-                    if(operator == '<') // invert
-                        fprintf(asm_file, "    xor $1, %%eax\n");
-                    fprintf(asm_file, "    push %%eax\n");
-                }
-                return 0;
-            }
-            else {
-                printf("Unrecognized operator %c\n", operator);
-                return 1;
-            }
+            printf("Unrecognized operator %c\n", operator);
+            return 1;
         }
         fprintf(asm_file, "    push %%eax\n");
     } else if (strcmp(fn_call->name, "define") == 0) {
