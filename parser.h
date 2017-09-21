@@ -17,6 +17,7 @@ fn_arg *parse_fn_arg();
 fn_args *parse_fn_args();
 fn_call *parse_fn_call();
 void parse_ws();
+block *parse_block();
 program *parse_program();
 
 #endif

@@ -306,7 +306,7 @@ int asm_write_fn_call(fn_call *fn_call) {
             fprintf(asm_file, "    mov $0, %%edx\n");
             fprintf(asm_file, "    pop %%ebx\n");
             fprintf(asm_file, "    pop %%eax\n");
-            fprintf(asm_file, "    div %%ebx\n");
+            fprintf(asm_file, "    idiv %%ebx\n");
         }
         if (operator == '/') {
             fprintf(asm_file, "    push %%eax\n");
@@ -315,14 +315,14 @@ int asm_write_fn_call(fn_call *fn_call) {
             fprintf(asm_file, "    push %%edx\n");
             return 0;
         } else {
-            fprintf(asm_file, "    pop %%eax\n");
             fprintf(asm_file, "    pop %%ebx\n");
+            fprintf(asm_file, "    pop %%eax\n");
             if(operator == '+')
                 fprintf(asm_file, "    add %%ebx, %%eax\n");
             else if(operator == '-')
-                fprintf(asm_file, "    sub %%eax, %%ebx\n");
+                fprintf(asm_file, "    sub %%ebx, %%eax\n");
             else if(operator == '*')
-                fprintf(asm_file, "    mul %%ebx\n");
+                fprintf(asm_file, "    imul %%ebx\n");
             else if(operator == '=' || operator == '<' || operator == '>') {
                 fprintf(asm_file, "    cmp %%eax, %%ebx\n");
                 if(operator == '=') {
@@ -336,7 +336,7 @@ int asm_write_fn_call(fn_call *fn_call) {
                 } else if(operator == '<' || operator == '>') {
                     fprintf(asm_file, "    mov $0, %%eax\n");
                     fprintf(asm_file, "    adc $0, %%eax\n");
-                    if(operator == '>') // invert
+                    if(operator == '<') // invert
                         fprintf(asm_file, "    xor $1, %%eax\n");
                     fprintf(asm_file, "    push %%eax\n");
                 }
@@ -375,19 +375,30 @@ int asm_write_fn_call(fn_call *fn_call) {
                 return 1;
             }
         } else { // redefinition
-            #define EXPECT_TYPE(x,y,z) if(as->type == x && args->first->next->val->type != y) \
+            #define EXPECT_TYPE(x,y,z) if(as->type == x && args->first->next->val->type != y && \
+                                          args->first->next->val->type != VALUE_CALL_TYPE) \
             {   printf("Expected %s type for value %s on redefinition\n", z, args->first->val->val.string); return 1; }
+            deprintf("NAME:%s\n", name);
             EXPECT_TYPE(ASM_VAR_NINT_TYPE, VALUE_NINT_TYPE, "integer");
             EXPECT_TYPE(ASM_VAR_NFLOAT_TYPE, VALUE_NFLOAT_TYPE, "float");
-            EXPECT_TYPE(ASM_VAR_STRING_TYPE, ASM_VAR_STRING_TYPE, "string");
+            EXPECT_TYPE(ASM_VAR_STRING_TYPE, VALUE_STR_TYPE, "string");
+            if(args->first->next->val->type == VALUE_CALL_TYPE) {
+                asm_write_fn_arg(args->first->next);
+            }
             if(as->type == ASM_VAR_NINT_TYPE) {
-                fprintf(asm_file, "    mov $%s, %%eax\n", name);
-                fprintf(asm_file, "    movb $%i, 0(%%eax)\n", args->first->next->val->val.nint);
+                fprintf(asm_file, "    mov $%s, %%ebp\n", name);
+                if(args->first->next->val->type == VALUE_CALL_TYPE) {
+                    fprintf(asm_file, "    pop %%eax\n");
+                    fprintf(asm_file, "    mov %%eax, 0(%%ebp)\n");
+                } else {
+                    fprintf(asm_file, "    movb $%i, 0(%%ebp)\n", args->first->next->val->val.nint);
+                }
             } else if (as->type == ASM_VAR_NFLOAT_TYPE) {
                 // TODO
             } else if (as->type == ASM_VAR_STRING_TYPE) {
                 // TODO: convert char[static length] to char*
             }
+            free(name);
         }
     } else if (strcmp(fn_call->name, "if") == 0 || strcmp(fn_call->name, "while") == 0) {
         if(strcmp(fn_call->name, "if") == 0 && (args->first == NULL || args->first->next == NULL)) {
@@ -535,6 +546,13 @@ char *asm_write_value(value *val) {
         return id;
     } else if (val->type == VALUE_CALL_TYPE) {
         asm_write_fn_call(val->val.fn_call);
+        return "";
+    } else if (val->type == VALUE_BLOCK_TYPE) {
+        fn_call *cur = val->val.block->first;
+        while(cur != NULL) {
+            asm_write_fn_call(cur);
+            cur = cur->next;
+        }
         return "";
     }
     return NULL;

@@ -30,6 +30,16 @@ void fn_call_destroy(fn_call *call) {
     free(call);
 }
 
+void block_destroy(block *block) {
+    fn_call *curr = block->first, *next;
+    while(curr != NULL) {
+        next = curr->next;
+        fn_call_destroy(curr);
+        curr = next;
+    }
+    free(block);
+}
+
 void program_destroy(program *program) {
     fn_call *curr = program->first, *next;
     while(curr != NULL) {

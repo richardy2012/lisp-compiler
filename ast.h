@@ -2,12 +2,14 @@
 #define AST_H
 
 struct fn_call;
+struct block;
 typedef struct {
     union {
         int nint;
         float nfloat;
         char *string;
         struct fn_call *fn_call;
+        struct block *block;
     } val;
     unsigned int type;
 } value;
@@ -16,6 +18,7 @@ typedef struct {
 #define VALUE_STR_TYPE    2
 #define VALUE_IDENT_TYPE  3
 #define VALUE_CALL_TYPE   4
+#define VALUE_BLOCK_TYPE  5
 void value_destroy(value *val);
 
 struct fn_arg;
@@ -42,6 +45,11 @@ inline int is_op(char op) {
         op == '=' || op == '<' || op == '>';
 }
 void fn_call_destroy(fn_call *call);
+
+typedef struct block {
+    fn_call *first, *last;
+} block;
+void block_destroy(block *block);
 
 typedef struct {
     fn_call *first, *last;

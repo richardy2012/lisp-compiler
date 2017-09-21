@@ -89,8 +89,15 @@ value *parse_value() {
     } else if (ch == '(') {
         deprintf("VALFNCALL\n");
         fn_call *call = parse_fn_call();
+        if(call == NULL) { free(val); return NULL; }
         val->val.fn_call = call;
         val->type = VALUE_CALL_TYPE;
+    } else if (ch == '{') {
+        deprintf("VALBLOCK\n");
+        block *block = parse_block();
+        if(block == NULL) { free(val); return NULL; }
+        val->val.block = block;
+        val->type = VALUE_BLOCK_TYPE;
     } else {
         printf("Expected value, got %c\n", ch);
         free(val);
@@ -204,10 +211,47 @@ fn_call *parse_fn_call() {
     return call;
 }
 
+block *parse_block() {
+    deprintf("BLOCK\n");
+    
+    if(parser_getch() != '{') {
+        printf("Expected block\n");
+        return NULL;
+    }
+    parser_pos++;
+    
+    block *block = malloc(sizeof(block));
+    
+    parse_ws();
+    block->first = parse_fn_call();
+    block->last = NULL;
+    if(block->first == NULL) {
+        return block;
+    }
+    parse_ws();
+    
+    fn_call *cur = block->first;
+    while(parser_pos < strlen(source)) {
+        fn_call *next = parse_fn_call();
+        if(next == NULL) {
+            block_destroy(block);
+            return NULL;
+        }
+        cur->next = next;
+        cur = next;
+        parse_ws();
+        if(parser_getch() == '}') break;
+    }
+    parser_pos++;
+    
+    return block;
+}
+
 program *parse_program() {
     deprintf("PROGRAM\n");
     program *program = malloc(sizeof(program));
     
+    parse_ws();
     program->first = parse_fn_call();
     if(program->first == NULL) {
         free(program);
@@ -225,7 +269,7 @@ program *parse_program() {
         }
         cur->next = next;
         cur = next;
-     parse_ws();
+        parse_ws();
     }
     
     return program;

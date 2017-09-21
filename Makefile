@@ -24,7 +24,7 @@ all: main.o ast.o utils.o parser.o codegen.o
 		printf "\033[1m\033[32m[PASS]\033[0m $<\n"; \
 	else \
 		printf "\033[1m\033[31m[FAIL]\033[0m $<\n"; \
-		if [ -e "$<.expects" ]; then diff $<.result $<.expects; else cat $<.result; fi; \
+		echo "Results:"; cat $<.result; echo "Expects:"; cat $<.expects; \
 	fi
 
 tests: clean_tests do_tests
