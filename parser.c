@@ -129,7 +129,7 @@ fn_args *parse_fn_args() {
         }
         last->next = arg;
         last = arg;
-        if(parser_getch() != ')') break;
+        if(parser_getch() == ')') break;
     }
     args->first = first;
     args->last = last;
@@ -190,6 +190,7 @@ fn_call *parse_fn_call() {
         return call;
     }
     call->next = NULL;
+    parse_ws();
     
     if(parser_getch() != ')') {
         printf("Expected ) in function call end\n");

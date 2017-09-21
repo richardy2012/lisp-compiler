@@ -275,6 +275,7 @@ int asm_write_end() {
     return 0;
 }
 
+unsigned int asm_label_length = 0;
 int asm_write_fn_call(fn_call *fn_call) {
     // TODO external calls
     fn_args *args = fn_call->args;
@@ -353,6 +354,40 @@ int asm_write_fn_call(fn_call *fn_call) {
             add_asm_nfloat(args->first->next->val->val.nfloat, name);
         else if(type == VALUE_STR_TYPE)
             add_asm_str(args->first->next->val->val.string, name);
+        else {
+            printf("Unsupported asm value type: %i\n", type);
+            return 1;
+        }
+    } else if (strcmp(fn_call->name, "if") == 0) {
+        if(args->first == NULL || args->first->next == NULL) {
+            printf("if expects at least 2 function arguments\n");
+            return 1;
+        }
+        unsigned int label_then = asm_label_length++,
+                     label_end = asm_label_length++,
+                     label_else = 0;
+        if(args->first->next->next != NULL) {
+            label_else = asm_label_length++;
+        }
+        asm_write_fn_arg(args->first);
+        fprintf(asm_file, "    pop %%eax\n");
+        fprintf(asm_file, "    cmp $0, %%eax\n");
+        fprintf(asm_file, "    jg l%i\n", label_then);
+        if(args->first->next->next != NULL) {
+            fprintf(asm_file, "    jle l%i\n", label_else);
+        }
+        fprintf(asm_file, "    jmp l%i\n", label_end);
+        fprintf(asm_file, "l%i:", label_then);
+        asm_write_fn_arg(args->first->next);
+        fprintf(asm_file, "    jmp l%i\n", label_end);
+        if(args->first->next->next != NULL) {
+            fprintf(asm_file, "l%i:", label_else);
+            asm_write_fn_arg(args->first->next->next);
+            fprintf(asm_file, "    jmp l%i\n", label_end);
+        }
+        fprintf(asm_file, "l%i:", label_end);
+    } else if (strcmp(fn_call->name, "while") == 0) {
+    
     } else if (strcmp(fn_call->name, "println") == 0 || strcmp(fn_call->name, "print") == 0) {
         uses_syswrite_stdout = 1;
         uses_strlen = 1;

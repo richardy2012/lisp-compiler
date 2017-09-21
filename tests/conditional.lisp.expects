@@ -1,0 +1,4 @@
+1 is true
+1 < 2 is true
+100 = 100 is true
+60 = 10 is false

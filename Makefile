@@ -6,7 +6,8 @@ LIBS=-lm
 TEST_FILES = tests/printf.bin \
              tests/arithmetic.bin \
              tests/variable.bin \
-             tests/compare.bin
+             tests/compare.bin \
+             tests/conditional.bin
 .PHONY: tests
 
 %.o: %.c $(DEPS)
