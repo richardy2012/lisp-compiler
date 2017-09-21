@@ -7,7 +7,8 @@ TEST_FILES = tests/printf.bin \
              tests/arithmetic.bin \
              tests/variable.bin \
              tests/compare.bin \
-             tests/conditional.bin
+             tests/conditional.bin \
+             tests/while.bin
 .PHONY: tests
 
 %.o: %.c $(DEPS)
@@ -18,7 +19,7 @@ all: main.o ast.o utils.o parser.o codegen.o
 
 %.bin: %.lisp
 	-@./lisp -o $@ $<
-	-@./$@ > ./$<.result; \
+	@./$@ > ./$<.result; \
 	if [ "x$$?" = "x0" ] && [ -e "$<.expects" ] && [ "x$$(diff $<.result $<.expects | wc -l)" = "x0" ]; then \
 		printf "\033[1m\033[32m[PASS]\033[0m $<\n"; \
 	else \

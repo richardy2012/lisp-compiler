@@ -29,6 +29,7 @@ extern asm_var *as_first, *as_last;
 extern unsigned int asm_var_len;
 
 void add_asm_var(asm_var *as);
+asm_var *get_asm_var(char *name);
 char *add_asm_nint(int nint, char *name);
 char *add_asm_nfloat(float nfloat, char *name);
 char *add_asm_str(char *value, char *name);

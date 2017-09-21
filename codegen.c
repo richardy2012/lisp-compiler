@@ -24,6 +24,16 @@ void add_asm_var(asm_var *as) {
     asm_var_len++;
 }
 
+asm_var *get_asm_var(char *name) {
+    asm_var *cur = as_first;
+    while(cur != NULL) {
+        if(strcmp(cur->name, name) == 0)
+            return cur;
+        cur = cur->next;
+    }
+    return NULL;
+}
+
 char *gen_asm_name() {
     char num[11];
     sprintf(num, "%d", asm_var_len);
@@ -96,7 +106,7 @@ void print_asm_var(asm_var *as) {
     fprintf(asm_file, "%s:\n", as->name);
     if(as->type == ASM_VAR_RES_TYPE) {
         fprintf(asm_file, "    .space %i\n", as->value.reserve);
-    } else {
+    } else if (as->type == ASM_VAR_STRING_TYPE) {
         fprintf(asm_file, "    .ascii \"");
         unsigned int i, len = strlen(as->value.string);
         for(i = 0; i < len; i++) {
@@ -117,6 +127,10 @@ void print_asm_var(asm_var *as) {
             }
         }
         fprintf(asm_file, "\\0\"\n");
+    } else if(as->type == ASM_VAR_NINT_TYPE) {
+        fprintf(asm_file, "    .int %i\n", as->value.nint);
+    } else {
+        printf("WARNING: Unrecognized asm_var type %i\n", as->type);
     }
 }
 
@@ -348,26 +362,48 @@ int asm_write_fn_call(fn_call *fn_call) {
         name[0] = 'V';
         name[1] = '\0';
         strcat(name, args->first->val->val.string);
-        if(type == VALUE_NINT_TYPE)
-            add_asm_nint(args->first->next->val->val.nint, name);
-        else if(type == VALUE_NFLOAT_TYPE)
-            add_asm_nfloat(args->first->next->val->val.nfloat, name);
-        else if(type == VALUE_STR_TYPE)
-            add_asm_str(args->first->next->val->val.string, name);
-        else {
-            printf("Unsupported asm value type: %i\n", type);
-            return 1;
+        asm_var *as = get_asm_var(name);
+        if(as == NULL) {
+            if(type == VALUE_NINT_TYPE)
+                add_asm_nint(args->first->next->val->val.nint, name);
+            else if(type == VALUE_NFLOAT_TYPE)
+                add_asm_nfloat(args->first->next->val->val.nfloat, name);
+            else if(type == VALUE_STR_TYPE)
+                add_asm_str(args->first->next->val->val.string, name);
+            else {
+                printf("Unsupported asm value type: %i\n", type);
+                return 1;
+            }
+        } else { // redefinition
+            #define EXPECT_TYPE(x,y,z) if(as->type == x && args->first->next->val->type != y) \
+            {   printf("Expected %s type for value %s on redefinition\n", z, args->first->val->val.string); return 1; }
+            EXPECT_TYPE(ASM_VAR_NINT_TYPE, VALUE_NINT_TYPE, "integer");
+            EXPECT_TYPE(ASM_VAR_NFLOAT_TYPE, VALUE_NFLOAT_TYPE, "float");
+            EXPECT_TYPE(ASM_VAR_STRING_TYPE, ASM_VAR_STRING_TYPE, "string");
+            if(as->type == ASM_VAR_NINT_TYPE) {
+                fprintf(asm_file, "    mov $%s, %%eax\n", name);
+                fprintf(asm_file, "    movb $%i, 0(%%eax)\n", args->first->next->val->val.nint);
+            } else if (as->type == ASM_VAR_NFLOAT_TYPE) {
+                // TODO
+            } else if (as->type == ASM_VAR_STRING_TYPE) {
+                // TODO: convert char[static length] to char*
+            }
         }
-    } else if (strcmp(fn_call->name, "if") == 0) {
-        if(args->first == NULL || args->first->next == NULL) {
+    } else if (strcmp(fn_call->name, "if") == 0 || strcmp(fn_call->name, "while") == 0) {
+        if(strcmp(fn_call->name, "if") == 0 && (args->first == NULL || args->first->next == NULL)) {
             printf("if expects at least 2 function arguments\n");
             return 1;
         }
         unsigned int label_then = asm_label_length++,
                      label_end = asm_label_length++,
-                     label_else = 0;
+                     label_else = 0,
+                     label_condition = 0;
         if(args->first->next->next != NULL) {
             label_else = asm_label_length++;
+        }
+        if(strcmp(fn_call->name, "while") == 0) {
+            label_condition = asm_label_length++;
+            fprintf(asm_file, "l%i:\n", label_condition);
         }
         asm_write_fn_arg(args->first);
         fprintf(asm_file, "    pop %%eax\n");
@@ -377,17 +413,18 @@ int asm_write_fn_call(fn_call *fn_call) {
             fprintf(asm_file, "    jle l%i\n", label_else);
         }
         fprintf(asm_file, "    jmp l%i\n", label_end);
-        fprintf(asm_file, "l%i:", label_then);
+        fprintf(asm_file, "l%i:\n", label_then);
         asm_write_fn_arg(args->first->next);
-        fprintf(asm_file, "    jmp l%i\n", label_end);
+        if(strcmp(fn_call->name, "while") == 0)
+            fprintf(asm_file, "    jmp l%i\n", label_condition);
+        else
+            fprintf(asm_file, "    jmp l%i\n", label_end);
         if(args->first->next->next != NULL) {
-            fprintf(asm_file, "l%i:", label_else);
+            fprintf(asm_file, "l%i:\n", label_else);
             asm_write_fn_arg(args->first->next->next);
             fprintf(asm_file, "    jmp l%i\n", label_end);
         }
-        fprintf(asm_file, "l%i:", label_end);
-    } else if (strcmp(fn_call->name, "while") == 0) {
-    
+        fprintf(asm_file, "l%i:\n", label_end);
     } else if (strcmp(fn_call->name, "println") == 0 || strcmp(fn_call->name, "print") == 0) {
         uses_syswrite_stdout = 1;
         uses_strlen = 1;
@@ -444,7 +481,24 @@ int asm_write_fn_arg(fn_arg *arg) {
     } else if (strlen(s) == 0) {
         return 0;
     }
-    fprintf(asm_file, "    push %s\n", s);
+    if(arg->val->type == VALUE_IDENT_TYPE) {
+        char *id = malloc(strlen(arg->val->val.string) + 2);
+        id[0] = 'V'; id[1] = '\0';
+        strcat(id, arg->val->val.string);
+        asm_var *as = get_asm_var(id);
+        if(as == NULL) {
+            printf("Variable %s does not exist\n", id);
+            return 1;
+        }
+        if(as->type == ASM_VAR_NINT_TYPE || as->type == ASM_VAR_NFLOAT_TYPE) {
+             fprintf(asm_file, "    mov %s, %%edi\n", s);
+             fprintf(asm_file, "    push (%%edi)\n");
+        } else {
+            fprintf(asm_file, "    push %s\n", s);
+        }
+        free(id);
+    } else
+        fprintf(asm_file, "    push %s\n", s);
     free(s);
     return 0;
 }

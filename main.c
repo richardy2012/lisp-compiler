@@ -18,7 +18,7 @@ int make_binary() {
     strcpy(obj, outputf);
     strcat(obj, ".o");
     obj[strlen(outputf) + 2] = '\0';
-    char *argv_as[] = { as, "-o", obj, outputs, NULL };
+    char *argv_as[] = { as, "--gstabs+", "-o", obj, outputs, NULL };
     mopen(argv_as);
     if(mopen_status) {
         printf("assembler returned with exit code %i\n", mopen_status);
