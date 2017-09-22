@@ -128,7 +128,7 @@ void print_asm_var(asm_var *as) {
         }
         fprintf(asm_file, "\\0\"\n");
     } else if(as->type == ASM_VAR_NINT_TYPE) {
-        fprintf(asm_file, "    .int %i\n", as->value.nint);
+        fprintf(asm_file, "    .long %i\n", as->value.nint);
     } else {
         printf("WARNING: Unrecognized asm_var type %i\n", as->type);
     }
@@ -239,7 +239,7 @@ int asm_write_end() {
         fprintf(asm_file, ".itoa_loop:\n"); // TODO
         fprintf(asm_file, "    mov $10, %%ebx\n"); // divided by 10
         fprintf(asm_file, "    mov $0, %%edx\n"); // remainder
-        fprintf(asm_file, "    div %%ebx\n");
+        fprintf(asm_file, "    divl %%ebx\n");
         fprintf(asm_file, "    add $48, %%edx\n"); // ord('0') == 48
         fprintf(asm_file, "    push %%edx\n");
         fprintf(asm_file, "    inc %%ecx\n"); // len++
@@ -306,7 +306,7 @@ int asm_write_fn_call(fn_call *fn_call) {
         fprintf(asm_file, "    pop %%eax\n");
         if(operator == '/' || operator == '%') {
             fprintf(asm_file, "    mov $0, %%edx\n");
-            fprintf(asm_file, "    idiv %%ebx\n");
+            fprintf(asm_file, "    idivl %%ebx\n");
         }
         if (operator == '/') {
             fprintf(asm_file, "    push %%eax\n");
@@ -315,13 +315,13 @@ int asm_write_fn_call(fn_call *fn_call) {
             fprintf(asm_file, "    push %%edx\n");
             return 0;
         } else if(operator == '+')
-            fprintf(asm_file, "    add %%ebx, %%eax\n");
+            fprintf(asm_file, "    addl %%ebx, %%eax\n");
         else if(operator == '-')
-            fprintf(asm_file, "    sub %%ebx, %%eax\n");
+            fprintf(asm_file, "    subl %%ebx, %%eax\n");
         else if(operator == '*')
             fprintf(asm_file, "    imul %%ebx\n");
         else if(operator == '=' || operator == '<' || operator == '>') {
-            fprintf(asm_file, "    cmp %%eax, %%ebx\n");
+            fprintf(asm_file, "    cmpl %%eax, %%ebx\n");
             if(operator == '=') {
                 // https://www.aldeid.com/wiki/X86-assembly/Instructions/pushf
                 fprintf(asm_file, "    pushf\n");
@@ -342,7 +342,7 @@ int asm_write_fn_call(fn_call *fn_call) {
             printf("Unrecognized operator %c\n", operator);
             return 1;
         }
-        fprintf(asm_file, "    push %%eax\n");
+        fprintf(asm_file, "    pushl %%eax\n");
     } else if (strcmp(fn_call->name, "define") == 0) {
         if(args->first->val->type != VALUE_IDENT_TYPE) {
             printf("define function expects identifier as first argument\n");
@@ -386,7 +386,7 @@ int asm_write_fn_call(fn_call *fn_call) {
                     fprintf(asm_file, "    pop %%eax\n");
                     fprintf(asm_file, "    mov %%eax, 0(%%ebp)\n");
                 } else {
-                    fprintf(asm_file, "    movb $%i, 0(%%ebp)\n", args->first->next->val->val.nint);
+                    fprintf(asm_file, "    movl $%i, 0(%%ebp)\n", args->first->next->val->val.nint);
                 }
             } else if (as->type == ASM_VAR_NFLOAT_TYPE) {
                 // TODO
@@ -498,12 +498,14 @@ int asm_write_fn_arg(fn_arg *arg) {
         }
         if(as->type == ASM_VAR_NINT_TYPE || as->type == ASM_VAR_NFLOAT_TYPE) {
              fprintf(asm_file, "    mov %s, %%edi\n", s);
-             fprintf(asm_file, "    push (%%edi)\n");
+             fprintf(asm_file, "    pushl (%%edi)\n");
         } else {
             fprintf(asm_file, "    push %s\n", s);
         }
         free(id);
-    } else
+    } else if (arg->val->type == VALUE_NINT_TYPE)
+        fprintf(asm_file, "    pushl %s\n", s);
+    else
         fprintf(asm_file, "    push %s\n", s);
     free(s);
     return 0;
@@ -527,8 +529,7 @@ char *asm_write_value(value *val) {
             n[2] = '\0';
         } else {
             n = malloc((int)floor(log10(abs(val->val.nint))) + 2);
-            sprintf(n, "$%d", val->val.nint);
-            n[(int)floor(log10(abs(val->val.nint))) + 2] = '\0';
+            sprintf(n, "$%i", val->val.nint);
         }
         return n;
     } else if (val->type == VALUE_IDENT_TYPE) {

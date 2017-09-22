@@ -70,7 +70,11 @@ value *parse_value() {
         val->type = VALUE_STR_TYPE;
     } else if (isdigit(ch) || ch == '-') {
         int neg = 1;
-        if(ch == '-') { neg = -1; parser_pos++; }
+        if(ch == '-') {
+            neg = -1;
+            parser_pos++;
+            ch = parser_getch();
+        }
         
         char *string = malloc(2);
         unsigned int ssize = 1;
@@ -83,8 +87,8 @@ value *parse_value() {
         }
         string[ssize] = '\0';
         
-        deprintf("Number %s\n",string);
         val->val.nint = atoi(string) * neg;
+        deprintf("Number %i\n",val->val.nint);
         val->type = VALUE_NINT_TYPE;
     } else if (ch == '(') {
         deprintf("VALFNCALL\n");

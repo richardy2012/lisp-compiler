@@ -2,6 +2,7 @@ CC=gcc
 CFLAGS=-Wall -O3
 LDFLAGS=
 LIBS=-lm
+LISP_FLAGS=
 
 TEST_FILES = tests/printf.bin \
              tests/arithmetic.bin \
@@ -18,7 +19,7 @@ all: main.o ast.o utils.o parser.o codegen.o
 	gcc $(CFLAGS) $(LDFLAGS) -o lisp $^ $(LIBS)
 
 %.bin: %.lisp
-	-@./lisp -o $@ $<
+	-@./lisp $(LISP_FLAGS) -o $@ $<
 	@./$@ > ./$<.result; \
 	if [ "x$$?" = "x0" ] && [ -e "$<.expects" ] && [ "x$$(diff $<.result $<.expects | wc -l)" = "x0" ]; then \
 		printf "\033[1m\033[32m[PASS]\033[0m $<\n"; \
