@@ -351,22 +351,28 @@ int asm_write_fn_call(fn_call *fn_call) {
     if(strlen(fn_call->name) == 1 && is_op(fn_call->name[0])) {
         char operator = fn_call->name[0];
         asm_write_fn_arg(args->first);
+        if(operator == '-' && args->first->next == NULL) { // negative function
+            fprintf(asm_file, "    popl %%eax\n");
+            fprintf(asm_file, "    neg %%eax\n");
+            fprintf(asm_file, "    push %%eax\n");
+            return 0;
+        }
         if(args->first->next == NULL) {
             printf("Binary operator %c requires 2 arguments.\n", operator);
             return 1;
         }
         asm_write_fn_arg(args->first->next);
-        fprintf(asm_file, "    pop %%ebx\n");
-        fprintf(asm_file, "    pop %%eax\n");
+        fprintf(asm_file, "    popl %%ebx\n");
+        fprintf(asm_file, "    popl %%eax\n");
         if(operator == '/' || operator == '%') {
-            fprintf(asm_file, "    mov $0, %%edx\n");
+            fprintf(asm_file, "    cdq\n");
             fprintf(asm_file, "    idivl %%ebx\n");
         }
         if (operator == '/') {
-            fprintf(asm_file, "    push %%eax\n");
+            fprintf(asm_file, "    pushl %%eax\n");
             return 0;
         } else if (operator == '%') {
-            fprintf(asm_file, "    push %%edx\n");
+            fprintf(asm_file, "    pushl %%edx\n");
             return 0;
         } else if(operator == '+')
             fprintf(asm_file, "    addl %%ebx, %%eax\n");

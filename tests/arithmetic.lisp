@@ -3,4 +3,9 @@
 (println (itoa (* 10 5)))
 (println (itoa (/ 30 1)))
 (println (itoa (% 10 6)))
+
 (println (itoa (- 5 16)))
+(println (itoa (* -5 -10)))
+(println (itoa (+ -5 -10)))
+(println (itoa (/ -10 5)))
+(println (itoa (- 10)))
