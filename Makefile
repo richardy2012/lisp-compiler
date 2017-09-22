@@ -9,7 +9,9 @@ TEST_FILES = tests/printf.bin \
              tests/variable.bin \
              tests/compare.bin \
              tests/conditional.bin \
-             tests/while.bin
+             tests/while.bin \
+             tests/nested_while.bin \
+             tests/static_define.bin
 .PHONY: tests
 
 %.o: %.c $(DEPS)

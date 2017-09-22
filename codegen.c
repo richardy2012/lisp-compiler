@@ -4,13 +4,6 @@
 #include "codegen.h"
 #include "utils.h"
 
-unsigned int uses_syswrite_stdout = 0,
-             uses_strlen = 0,
-             uses_atoi = 0,
-             uses_itoa = 0,
-             uses_sbrk = 0,
-             uses_println = 0;
-
 asm_var *as_first = NULL, *as_last = NULL;
 unsigned int asm_var_len = 0;
 
@@ -171,6 +164,24 @@ int asm_write_program(program *program) {
 }
 
 // write standard library + end
+
+unsigned int uses_syswrite_stdout = 0,
+             uses_strlen = 0,
+             uses_abs = 0,
+             uses_atoi = 0,
+             uses_itoa = 0,
+             uses_sbrk = 0,
+             uses_println = 0;
+
+// swap top variables
+void asm_write_nswap2() { // also used reverse
+    fprintf(asm_file, "    pop %%eax\n"); // pop the caller function
+    fprintf(asm_file, "    popl %%ebx\n"); // pop the argument
+    // swap top 2 elements of array
+    fprintf(asm_file, "    push %%eax\n"); // caller function (bottom)
+    fprintf(asm_file, "    pushl %%ebx\n"); // argument (top)
+}
+
 int asm_write_end() {
     fprintf(asm_file, "    mov $0, %%ebx\n");
     fprintf(asm_file, "    call sysexit\n");
@@ -213,11 +224,14 @@ int asm_write_end() {
     
     // string <-> int manip
     if(uses_itoa) {
+        uses_abs = 1;
         char *s = reserve_asm_var(12, NULL);
         
         fprintf(asm_file, "itoa:\n");
-        fprintf(asm_file, "    pop %%edi\n"); // pop the call function
-        fprintf(asm_file, "    pop %%eax\n"); // number to convert
+        asm_write_nswap2();
+        fprintf(asm_file, "    push %%ebx\n");
+        fprintf(asm_file, "    call abs\n");
+        fprintf(asm_file, "    popl %%eax\n");
         fprintf(asm_file, "    cmp $10, %%eax\n");
         fprintf(asm_file, "    jl .itoa_end\n");
         fprintf(asm_file, "    jge .itoa_loop_start\n");
@@ -226,47 +240,87 @@ int asm_write_end() {
         fprintf(asm_file, ".itoa_end:\n");
         fprintf(asm_file, "    add $48, %%eax\n");
         fprintf(asm_file, "    mov $%s, %%ebx\n", s);
+        fprintf(asm_file, "    popl %%ecx\n");
+        fprintf(asm_file, "    cmpl $0, %%ecx\n");
+        fprintf(asm_file, "    jge .itoa_end_2\n");
+        fprintf(asm_file, ".itoa_end_1:\n");
+        fprintf(asm_file, "    movb $%i, (%%ebx)\n", '-');
+        fprintf(asm_file, "    mov %%eax, 1(%%ebx)\n");
+        fprintf(asm_file, "    movb $0, 2(%%ebx)\n");
+        fprintf(asm_file, "    jmp .itoa_end_3\n");
+        fprintf(asm_file, ".itoa_end_2:\n");
         fprintf(asm_file, "    mov %%eax, (%%ebx)\n");
         fprintf(asm_file, "    movb $0, 1(%%ebx)\n");
+        // jmp itoa_end_3
+        fprintf(asm_file, ".itoa_end_3:\n");
         fprintf(asm_file, "    push %%ebx\n");
-        fprintf(asm_file, "    push %%edi\n"); // push back to call stack
+        asm_write_nswap2();
         fprintf(asm_file, "    ret\n");
         
-        fprintf(asm_file, ".itoa_loop_start:\n"); 
+        fprintf(asm_file, ".itoa_loop_start:\n");
         fprintf(asm_file, "    mov $0, %%ecx\n"); // length of number
+        fprintf(asm_file, "    pop %%edx\n");
+        fprintf(asm_file, "    cmpl $0, %%edx\n");
+        fprintf(asm_file, "    jl .itoa_loop_start_2\n");
+        fprintf(asm_file, "    mov $0, %%ebp\n");
         fprintf(asm_file, "    jmp .itoa_loop\n");
-        
-        fprintf(asm_file, ".itoa_loop:\n"); // TODO
+        fprintf(asm_file, ".itoa_loop_start_2:\n");
+        fprintf(asm_file, "    mov $1, %%ebp\n");
+        fprintf(asm_file, "    jmp .itoa_loop\n");
+        fprintf(asm_file, ".itoa_loop:\n");
         fprintf(asm_file, "    mov $10, %%ebx\n"); // divided by 10
         fprintf(asm_file, "    mov $0, %%edx\n"); // remainder
         fprintf(asm_file, "    divl %%ebx\n");
         fprintf(asm_file, "    add $48, %%edx\n"); // ord('0') == 48
         fprintf(asm_file, "    push %%edx\n");
         fprintf(asm_file, "    inc %%ecx\n"); // len++
-        fprintf(asm_file, "    cmp $10, %%eax\n");
+        fprintf(asm_file, "    cmpl $10, %%eax\n");
         fprintf(asm_file, "    jge .itoa_loop\n");
-        fprintf(asm_file, "    add $48, %%eax\n");
-        fprintf(asm_file, "    push %%eax\n");
+        fprintf(asm_file, "    addl $48, %%eax\n");
+        fprintf(asm_file, "    pushl %%eax\n");
         fprintf(asm_file, "    mov $0, %%ebx\n"); // length of string
-        fprintf(asm_file, "    jmp .itoa_loop_end\n");
+        fprintf(asm_file, "    jmp .itoa_loop_end_start\n");
         
+        fprintf(asm_file, ".itoa_loop_end_start:\n");
+        fprintf(asm_file, "    cmp $0, %%ebp\n");
+        fprintf(asm_file, "    jg .itoa_loop_end_1\n");
+        fprintf(asm_file, "    jmp .itoa_loop_end\n");
+        fprintf(asm_file, ".itoa_loop_end_1:\n");
+        fprintf(asm_file, "    pushl $'-'\n");
+        fprintf(asm_file, "    inc %%ecx\n");
+        fprintf(asm_file, "    jmp .itoa_loop_end\n");
         fprintf(asm_file, ".itoa_loop_end:\n");
         // stack if "10" passed: 0 1
-        fprintf(asm_file, "    pop %%edx\n");
+        fprintf(asm_file, "    popl %%edx\n");
         fprintf(asm_file, "    mov $%s, %%ebp\n", s);
         fprintf(asm_file, "    mov %%edx, (%%ebp,%%ebx)\n");
         fprintf(asm_file, "    inc %%ebx\n");
         fprintf(asm_file, "    dec %%ecx\n");
-        fprintf(asm_file, "    cmp $0, %%ecx\n");
+        fprintf(asm_file, "    cmpl $0, %%ecx\n");
         fprintf(asm_file, "    jge .itoa_loop_end\n");
         fprintf(asm_file, "    movb $0, (%%ebp,%%ebx)\n");
         fprintf(asm_file, "    push %%ebp\n");
-        fprintf(asm_file, "    push %%edi\n"); // push itoa's caller to call stack
+        asm_write_nswap2();
         fprintf(asm_file, "    ret\n");
     }
     
     if(uses_atoi) {
     
+    }
+    
+    // int manip
+    if(uses_abs) {
+        // abs(x) = (x XOR y) - y
+        // y = x >>> 31 (x86 is 32-bit)
+        fprintf(asm_file, "abs:\n");
+        asm_write_nswap2();
+        fprintf(asm_file, "    popl %%eax\n"); // number to convert
+        fprintf(asm_file, "    movl %%eax, %%ebx\n");
+        fprintf(asm_file, "    neg %%eax\n");
+        fprintf(asm_file, "    cmovl %%ebx, %%eax\n");
+        fprintf(asm_file, "    pushl %%eax\n");
+        asm_write_nswap2();
+        fprintf(asm_file, "    ret\n");
     }
     
     // memory manip
@@ -343,7 +397,12 @@ int asm_write_fn_call(fn_call *fn_call) {
             return 1;
         }
         fprintf(asm_file, "    pushl %%eax\n");
-    } else if (strcmp(fn_call->name, "define") == 0) {
+    } else if (
+    strcmp(fn_call->name, "define")    == 0 ||
+    strcmp(fn_call->name, "defint")    == 0 ||
+    strcmp(fn_call->name, "deffloat")  == 0 ||
+    strcmp(fn_call->name, "defstr")    == 0
+    ) {
         if(args->first->val->type != VALUE_IDENT_TYPE) {
             printf("define function expects identifier as first argument\n");
             return 1;
@@ -352,6 +411,13 @@ int asm_write_fn_call(fn_call *fn_call) {
             printf("define function expects 2 arguments\n");
             return 1;
         }
+        #define EXPECT_TYPE_BY_NAME(x,y,z) if(strcmp(fn_call->name, x) == 0 && args->first->next->val->type != y && \
+                                           args->first->next->val->type != VALUE_CALL_TYPE) \
+            {   printf("%s expects %s type for value %s\n", x, z, args->first->val->val.string); return 1; }
+        EXPECT_TYPE_BY_NAME("defint", VALUE_NINT_TYPE, "integer");
+        EXPECT_TYPE_BY_NAME("deffloat", VALUE_NFLOAT_TYPE, "float");
+        EXPECT_TYPE_BY_NAME("defstr", VALUE_STR_TYPE, "string");
+        
         unsigned int type = args->first->next->val->type;
         char *name = malloc(strlen(args->first->val->val.string) + 2);
         name[0] = 'V';
