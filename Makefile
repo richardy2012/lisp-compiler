@@ -11,7 +11,8 @@ TEST_FILES = tests/printf.bin \
              tests/conditional.bin \
              tests/while.bin \
              tests/nested_while.bin \
-             tests/static_define.bin
+             tests/static_define.bin \
+             tests/fizzbuzz.bin
 .PHONY: tests
 
 %.o: %.c $(DEPS)
@@ -21,7 +22,7 @@ all: main.o ast.o utils.o parser.o codegen.o
 	gcc $(CFLAGS) $(LDFLAGS) -o lisp $^ $(LIBS)
 
 %.bin: %.lisp
-	-@./lisp $(LISP_FLAGS) -o $@ $<
+	@./lisp $(LISP_FLAGS) -o $@ $<
 	@./$@ > ./$<.result; \
 	if [ "x$$?" = "x0" ] && [ -e "$<.expects" ] && [ "x$$(diff $<.result $<.expects | wc -l)" = "x0" ]; then \
 		printf "\033[1m\033[32m[PASS]\033[0m $<\n"; \

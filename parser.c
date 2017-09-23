@@ -130,8 +130,7 @@ fn_args *parse_fn_args() {
     }
     fn_arg *first = parse_fn_arg();
     fn_arg *last = first;
-    while(parser_getch() == ' ') {
-        parser_pos++;
+    while(parser_getch() == ' ' && parser_getch() != ')') {
         parse_ws();
         fn_arg *arg = parse_fn_arg();
         if(arg == NULL) {
@@ -140,7 +139,6 @@ fn_args *parse_fn_args() {
         }
         last->next = arg;
         last = arg;
-        if(parser_getch() == ')') break;
     }
     args->first = first;
     args->last = last;
@@ -152,7 +150,7 @@ fn_call *parse_fn_call() {
     
     if(parser_getch() != '(') {
         printf("Expected ( in function call start\n");
-        deprintf("%i\n", parser_getch());
+        deprintf("%c\n", parser_getch());
         return NULL;
     }
     parser_pos++;
@@ -183,18 +181,12 @@ fn_call *parse_fn_call() {
     call->args = NULL;
     call->next = NULL;
     
-    if(parser_getch() != ' ') {
-        printf("Expected space after function name\n");
-        free(call);
-        free(name);
-        return NULL;
-    }
-    parser_pos++;
-    parse_ws();
-    
     if(parser_getch() == ')') {
+        parser_pos++;
         return call;
     }
+    
+    parse_ws();
     
     call->args = parse_fn_args();
     if(call->args == NULL) {
@@ -235,7 +227,7 @@ block *parse_block() {
     parse_ws();
     
     fn_call *cur = block->first;
-    while(parser_pos < strlen(source)) {
+    while(parser_getch() != '}') {
         fn_call *next = parse_fn_call();
         if(next == NULL) {
             block_destroy(block);
@@ -244,7 +236,6 @@ block *parse_block() {
         cur->next = next;
         cur = next;
         parse_ws();
-        if(parser_getch() == '}') break;
     }
     parser_pos++;
     
