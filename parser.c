@@ -101,6 +101,7 @@ value *parse_value() {
         val->val.block = block;
         val->type = VALUE_BLOCK_TYPE;
     } else if (ch == '[') {
+        deprintf("VALARRAY\n");
         array *arr = parse_array();
         if(arr == NULL) { free(val); return NULL; }
         val->val.array = arr;
@@ -128,21 +129,33 @@ array *parse_array() {
         return arr;
     }
     
-    while(parser_pos < strlen(source) && is_ws(parser_getch())) {
+    value *val = parse_value();
+    array_item *item = malloc(sizeof(array_item));
+    item->val = val;
+    item->prev = NULL;
+    item->next = NULL;
+    arr->first = item;
+    arr->last = item;
+    if(arr->first == NULL) {
+        free(arr);
+        return NULL;
+    }
+    
+    while(parser_pos < strlen(source) && is_ws(parser_getch()) && parser_getch() != ']') {
         parse_ws();
         value *val = parse_value();
-        if(val == NULL) return NULL;
+        if(val == NULL) {
+            free(arr);
+            return NULL;
+        }
         array_item *item = malloc(sizeof(array_item));
         item->val = val;
+        item->prev = arr->last;
         item->next = NULL;
-        if(arr->last == NULL) {
-            arr->first = arr->last = item;
-        } else {
-            arr->last = item;
-            arr->last->next = item;
-        }
-        if(parser_getch() == ']') break;
+        arr->last->next = item;
+        arr->last = item;
     }
+    parser_pos++;
     
     return arr;
 }
@@ -237,6 +250,7 @@ fn_call *parse_fn_call() {
     
     if(parser_getch() != ')') {
         printf("Expected ) in function call end\n");
+        deprintf("%c\n", parser_getch());
         free(name);
         fn_args_destroy(call->args);
         free(call);

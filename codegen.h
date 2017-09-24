@@ -8,6 +8,16 @@
 FILE *asm_file;
 char outputs[256]; // .s file
 
+// compiler function variables
+struct asm_fn;
+typedef struct asm_fn {
+    char *name;
+    fn_call *fn_call;
+    struct asm_fn *next;
+} asm_fn;
+asm_fn *asm_fn_first = NULL, *asm_fn_last = NULL;
+void asm_fn_add(char *name, fn_call *fn_call);
+
 // compiler string variables
 struct asm_var;
 typedef struct asm_var {

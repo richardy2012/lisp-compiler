@@ -4,7 +4,21 @@
 #include "codegen.h"
 #include "utils.h"
 
-// asm variables
+// compiler function variables
+void asm_fn_add(char *name, fn_call *fn_call) {
+    asm_fn *fn = malloc(sizeof(asm_fn));
+    fn->name = name;
+    fn->fn_call = fn_call;
+    fn->next = NULL;
+    if(asm_fn_first == NULL) {
+        asm_fn_first = asm_fn_last = fn;
+    } else {
+        asm_fn_last->next = fn;
+        asm_fn_last = fn;
+    }
+}
+
+// compiler string variables
 asm_var *as_first = NULL, *as_last = NULL;
 int asm_var_len = 0;
 
@@ -29,7 +43,7 @@ asm_var *get_asm_var(char *name) {
 }
 
 char *gen_asm_name() {
-    char num[11];
+    char num[12];
     sprintf(num, "%d", asm_var_len);
     char *name = malloc(strlen(num) + 2);
     name[0] = 'L';
@@ -188,44 +202,48 @@ void asm_write_swap2() { // also used reverse
 
 int asm_write_defun(fn_call *fn_call) {
     fn_args *args = fn_call->args;
-    if(args->first == NULL || args->first->next == NULL || args->first->next->next == NULL) {
-        printf("defun expects at least 3 arguments\n");
-        return 1;
-    }
-    if(args->first->next->val->type != VALUE_ARRAY_TYPE) {
-        printf("defun expects an array of arguments [(type, name) ...]\n");
-        return 1;
-    }
     fprintf(asm_file, "%s:\n", args->first->val->val.string);
 
     // pop the caller -> ($Dcaller)
     fprintf(asm_file, "    mov $Dcaller, %%ebx\n");
     fprintf(asm_file, "    pop %%eax\n");
     fprintf(asm_file, "    mov %%eax, (%%ebx)\n");
-     
+    
     scope = malloc(strlen(args->first->val->val.string) + 1);
     strcpy(scope, args->first->val->val.string);
-      
+    
     array_item *item = args->first->next->val->val.array->first;
     while(item != NULL) {
-        if(item->val->type != VALUE_CALL_TYPE || item->val->val.fn_call->args->first->next == NULL) {
-            printf("defun expects an array of arguments [(type, name) ...]\n");
+        if(item->val->type != VALUE_CALL_TYPE || item->val->val.fn_call->args->first == NULL) {
+            printf("defun expects an array of arguments [(type name) ...]\n");
             free(scope);
             return 1;
         }
-        char *vname = malloc(1 + strlen(scope) + 1 + strlen(item->val->val.fn_call->args->first->next->val->val.string) + 1);
+        char *vname = malloc(1 + strlen(scope) + 1 + strlen(item->val->val.fn_call->args->first->val->val.string) + 1);
         strcpy(vname, "V");
-        strcpy(vname, scope);
-        strcpy(vname, "_");
-        strcpy(vname, item->val->val.fn_call->args->first->next->val->val.string);
+        strcat(vname, scope);
+        strcat(vname, "_");
+        strcat(vname, item->val->val.fn_call->args->first->val->val.string);
         if(strcmp(item->val->val.fn_call->name, "int") == 0) {
             add_asm_nint(0, vname);
         } else if(strcmp(item->val->val.fn_call->name, "float") == 0) {
             add_asm_nfloat(0, vname);
         } else if(strcmp(item->val->val.fn_call->name, "str") == 0) {
             // TODO
+        } else {
+            printf("Cannot even\n");
+            free(vname);
+            free(scope);
+            return 1;
         }
         item = item->next;
+    }
+    
+    array_item *curr = args->first->next->val->val.array->last;
+    while(curr != NULL) {
+        fprintf(asm_file, "    mov $V%s_%s, %%eax\n", scope, curr->val->val.fn_call->args->first->val->val.string);
+        fprintf(asm_file, "    pop (%%eax)\n");
+        curr = curr->prev;
     }
 
     if(asm_write_fn_arg(args->first->next->next)) {
@@ -248,11 +266,9 @@ int asm_write_end(program *program) {
     fprintf(asm_file, "    call sysexit\n");
     // end _start
     
-    fn_call *call = program->first;
+    asm_fn *call = asm_fn_first;
     while(call != NULL) {
-        if(strcmp(call->name, "defun") == 0) {
-            if(asm_write_defun(call)) return 1;
-        }
+        asm_write_defun(call->fn_call);
         call = call->next;
     }
     add_asm_nint(0, "Dcaller");
@@ -441,13 +457,27 @@ int asm_write_fn_call(fn_call *fn_call) {
         } else if (operator == '%') {
             fprintf(asm_file, "    pushl %%edx\n");
             return 0;
-        } else if(operator == '+')
+        } else if(operator == '+') {
             fprintf(asm_file, "    addl %%ebx, %%eax\n");
-        else if(operator == '-')
+            fn_arg *curr = args->first->next->next;
+            while(curr != NULL) {
+                asm_write_fn_arg(curr);
+                fprintf(asm_file, "    popl %%ebx\n");
+                fprintf(asm_file, "    addl %%ebx, %%eax\n");
+                curr = curr->next;
+            }
+        } else if(operator == '-')
             fprintf(asm_file, "    subl %%ebx, %%eax\n");
-        else if(operator == '*')
+        else if(operator == '*') {
             fprintf(asm_file, "    imul %%ebx\n");
-        else if(operator == '=' || operator == '<' || operator == '>') {
+            fn_arg *curr = args->first->next->next;
+            while(curr != NULL) {
+                asm_write_fn_arg(curr);
+                fprintf(asm_file, "    popl %%ebx\n");
+                fprintf(asm_file, "    imul %%ebx\n");
+                curr = curr->next;
+            }
+        } else if(operator == '=' || operator == '<' || operator == '>') {
             fprintf(asm_file, "    cmpl %%eax, %%ebx\n");
             if(operator == '=') {
                 // https://www.aldeid.com/wiki/X86-assembly/Instructions/pushf
@@ -545,7 +575,16 @@ int asm_write_fn_call(fn_call *fn_call) {
             free(name);
         }
     } else if (strcmp(fn_call->name, "defun") == 0) {
-        return 0; // leave defun til the end to parse
+        fn_args *args = fn_call->args;
+        if(args->first == NULL || args->first->next == NULL || args->first->next->next == NULL) {
+            printf("defun expects at least 3 arguments\n");
+            return 1;
+        }
+        if(args->first->next->val->type != VALUE_ARRAY_TYPE) {
+            printf("defun expects an array of arguments [(type, name) ...]\n");
+            return 1;
+        }
+        asm_fn_add(args->first->val->val.string, fn_call);
     } else if (strcmp(fn_call->name, "if") == 0 || strcmp(fn_call->name, "while") == 0) {
         if(args->first == NULL || args->first->next == NULL) {
             printf("%s expects at least 2 function arguments\n", fn_call->name);

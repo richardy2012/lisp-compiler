@@ -29,7 +29,7 @@ void value_destroy(value *val);
 struct array_item;
 typedef struct array_item {
     value *val;
-    struct array_item *next;
+    struct array_item *prev, *next;
 } array_item;
 void array_item_destroy(array_item *array_item);
 
