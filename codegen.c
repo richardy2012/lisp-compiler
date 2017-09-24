@@ -170,24 +170,21 @@ unsigned int uses_syswrite_stdout = 0,
              uses_abs = 0,
              uses_atoi = 0,
              uses_itoa = 0,
-             uses_malloc = 0,
-             uses_println = 0;
+             uses_malloc = 0;
 
 // swap top variables
-void asm_write_nswap2() { // also used reverse
+void asm_write_swap2() { // also used reverse
     fprintf(asm_file, "    pop %%eax\n"); // pop the caller function
-    fprintf(asm_file, "    popl %%ebx\n"); // pop the argument
+    fprintf(asm_file, "    pop %%ebx\n"); // pop the argument
     // swap top 2 elements of array
     fprintf(asm_file, "    push %%eax\n"); // caller function (bottom)
-    fprintf(asm_file, "    pushl %%ebx\n"); // argument (top)
+    fprintf(asm_file, "    push %%ebx\n"); // argument (top)
 }
 
 int asm_write_end() {
     fprintf(asm_file, "    mov $0, %%ebx\n");
     fprintf(asm_file, "    call sysexit\n");
     
-    if(uses_println) add_asm_str("\n", "DNL");
-
     // stdlib
     // syscalls
     // sys_write
@@ -228,7 +225,7 @@ int asm_write_end() {
         char *s = reserve_asm_var(12, NULL);
         
         fprintf(asm_file, "itoa:\n");
-        asm_write_nswap2();
+        asm_write_swap2();
         fprintf(asm_file, "    pushl (%%esp)\n");
         fprintf(asm_file, "    call abs\n");
         fprintf(asm_file, "    popl %%eax\n");
@@ -254,7 +251,7 @@ int asm_write_end() {
         // jmp itoa_end_3
         fprintf(asm_file, ".itoa_end_3:\n");
         fprintf(asm_file, "    push %%ebx\n");
-        asm_write_nswap2();
+        asm_write_swap2();
         fprintf(asm_file, "    ret\n");
         
         fprintf(asm_file, ".itoa_loop_start:\n");
@@ -300,7 +297,7 @@ int asm_write_end() {
         fprintf(asm_file, "    jge .itoa_loop_end\n");
         fprintf(asm_file, "    movb $0, (%%ebp,%%ebx)\n");
         fprintf(asm_file, "    push %%ebp\n");
-        asm_write_nswap2();
+        asm_write_swap2();
         fprintf(asm_file, "    ret\n");
     }
     
@@ -311,34 +308,15 @@ int asm_write_end() {
     // int manip
     if(uses_abs) {
         fprintf(asm_file, "abs:\n");
-        //asm_write_nswap2();
-        asm_write_start_fn();
+        asm_write_swap2();
         fprintf(asm_file, "    popl %%eax\n"); // number to convert
         fprintf(asm_file, "    movl %%eax, %%ebx\n");
         fprintf(asm_file, "    neg %%eax\n");
         fprintf(asm_file, "    cmovl %%ebx, %%eax\n");
         fprintf(asm_file, "    pushl %%eax\n");
-        asm_write_end_fn();
-        //asm_write_nswap2();
+        asm_write_swap2();
         fprintf(asm_file, "    ret\n");
     }
-    
-    // memory manip
-    /*
-    if(uses_sbrk) {
-        fprintf(asm_file, "sbrk:\n");
-        fprintf(asm_file, "    mov $0x2d, %%eax\n");
-        fprintf(asm_file, "    mov $0, %%ebx\n");
-        fprintf(asm_file, "    int $0x80\n");
-        fprintf(asm_file, "    mov %%eax, %%ebx\n");
-        fprintf(asm_file, "    pop %%ecx\n");
-        fprintf(asm_file, "    pop %%ecx\n");
-        fprintf(asm_file, "    add %%ecx, %%ebx\n");
-        fprintf(asm_file, "    mov $0x2d, %%eax\n");
-        fprintf(asm_file, "    int $0x80\n");
-        fprintf(asm_file, "    ret\n");
-    }
-    */
     
     fprintf(asm_file,".section .data\n");
     print_all_asm_var();
@@ -417,12 +395,12 @@ int asm_write_fn_call(fn_call *fn_call) {
     strcmp(fn_call->name, "deffloat")  == 0 ||
     strcmp(fn_call->name, "defstr")    == 0
     ) {
-        if(args->first->val->type != VALUE_IDENT_TYPE) {
-            printf("define function expects identifier as first argument\n");
-            return 1;
-        }
         if(args->first->next == NULL) {
             printf("define function expects 2 arguments\n");
+            return 1;
+        }
+        if(args->first->val->type != VALUE_IDENT_TYPE) {
+            printf("define function expects identifier as first argument\n");
             return 1;
         }
         #define EXPECT_TYPE_BY_NAME(x,y,z) if(strcmp(fn_call->name, x) == 0 && args->first->next->val->type != y && \
@@ -478,9 +456,11 @@ int asm_write_fn_call(fn_call *fn_call) {
     } else if (strcmp(fn_call->name, "defun") == 0) {
         if(args->first == NULL || args->first->next == NULL || args->first->next->next == NULL) {
             printf("defun expects at least 3 arguments\n");
+            return 1;
         }
-        if(args->first->next->val->type != VALUE_CALL_TYPE) {
-            printf("defun expects an array\n");
+        if(args->first->next->val->type != -1) {
+            printf("defun expects an array of arguments\n");
+            return 1;
         }
         fprintf(asm_file, "%s:\n", args->first->val->val.string);
     } else if (strcmp(fn_call->name, "if") == 0 || strcmp(fn_call->name, "while") == 0) {
@@ -520,12 +500,26 @@ int asm_write_fn_call(fn_call *fn_call) {
         }
         fprintf(asm_file, "l%i:\n", label_end);
     } else if (strcmp(fn_call->name, "asm") == 0) {
-         if(args->first->next == NULL || args->first->next->val->type != VALUE_STR_TYPE) {
-            printf("asm function expects string variable\n");
+         if(args->first == NULL || args->first->val->type != VALUE_STR_TYPE) {
+            printf("asm function expects string argument\n");
             return 1;
         }
         fprintf(asm_file, "    %s\n", args->first->next->val->val.string);
-    } 
+    } else if (strcmp(fn_call->name, "ptr") == 0) {
+        if(args->first == NULL) {
+            printf("ptr function expects variable\n");
+            return 1;
+        }
+        asm_write_fn_arg(args->first);
+        fprintf(asm_file, "    pop %%eax\n");
+        fprintf(asm_file, "    push (%%eax)\n");
+    } else if (strcmp(fn_call->name, "addr") == 0) {
+        if(args->first == NULL || args->first->val->type != VALUE_IDENT_TYPE) {
+            printf("addr function expects identifier variable\n");
+            return 1;
+        }
+        fprintf(asm_file, "    push $V%s\n", args->first->val->val.string);
+    }
     
     // stdlib
     else if (strcmp(fn_call->name, "println") == 0 || strcmp(fn_call->name, "print") == 0) {
@@ -534,8 +528,7 @@ int asm_write_fn_call(fn_call *fn_call) {
         
         // https://syscalls.kernelgrok.com/
         asm_write_fn_arg(args->first);
-        // duplicate for sys_write
-        fprintf(asm_file, "    push (%%esp)\n");
+        fprintf(asm_file, "    push (%%esp)\n"); // duplicate for sys_write
         
         // strlen(arg1)
         fprintf(asm_file, "    pop %%edi\n"); // memory operand
@@ -546,14 +539,22 @@ int asm_write_fn_call(fn_call *fn_call) {
         // syscall(0x04, fd, buf, count)
         fprintf(asm_file, "    mov %%ecx, %%edx\n"); // strlen -> count
         fprintf(asm_file, "    pop %%ecx\n"); // memory operand
+        
+        if(strcmp(fn_call->name, "println") == 0) {
+            fprintf(asm_file, "    push %%ecx\n"); // duplicate for newline
+            fprintf(asm_file, "    push %%edx\n");
+            fprintf(asm_file, "    movb $'\\n', (%%edx,%%ecx)\n");
+            fprintf(asm_file, "    inc %%edx\n");
+        }
+        
         fprintf(asm_file, "    call syswrite_stdout\n");
         
         if(strcmp(fn_call->name, "println") == 0) {
-            uses_println = 1;
-            fprintf(asm_file, "    mov $DNL, %%ecx\n");
-            fprintf(asm_file, "    mov $1, %%edx\n");
-            fprintf(asm_file, "    call syswrite_stdout\n");
+            fprintf(asm_file, "    pop %%edx\n");
+            fprintf(asm_file, "    pop %%ecx\n");
+            fprintf(asm_file, "    movb $0, (%%edx,%%ecx)\n");
         }
+        
     } else {
         if      (strcmp(fn_call->name, "syswrite_stdout") == 0) uses_syswrite_stdout = 1;
         else if (strcmp(fn_call->name, "strlen") == 0)          uses_strlen = 1;

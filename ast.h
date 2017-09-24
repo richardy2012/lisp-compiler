@@ -11,7 +11,7 @@ typedef struct {
         struct fn_call *fn_call;
         struct block *block;
     } val;
-    unsigned int type;
+    int type;
 } value;
 #define VALUE_NINT_TYPE   0
 #define VALUE_NFLOAT_TYPE 1

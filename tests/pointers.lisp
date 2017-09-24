@@ -1,0 +1,5 @@
+(define hello "Hello World")
+(println (addr hello))
+(println (+ (addr hello) 6))
+(define x 10)
+(println (itoa (ptr (addr x))))
