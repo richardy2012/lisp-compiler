@@ -13,7 +13,8 @@ TEST_FILES = tests/printf.bin \
              tests/nested_while.bin \
              tests/static_define.bin \
              tests/fizzbuzz.bin \
-             tests/pointers.bin
+             tests/pointers.bin \
+             tests/functions.bin
 .PHONY: tests
 
 %.o: %.c $(DEPS)

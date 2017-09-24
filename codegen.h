@@ -16,9 +16,9 @@ typedef struct asm_var {
         int nint;
         float nfloat;
         char *string;
-        unsigned int reserve;
+        int reserve;
     } value;
-    unsigned int type;
+    int type;
     struct asm_var *next;
 } asm_var;
 #define ASM_VAR_NINT_TYPE   0
@@ -26,7 +26,7 @@ typedef struct asm_var {
 #define ASM_VAR_STRING_TYPE 2
 #define ASM_VAR_RES_TYPE    3
 extern asm_var *as_first, *as_last;
-extern unsigned int asm_var_len;
+extern int asm_var_len;
 
 void add_asm_var(asm_var *as);
 asm_var *get_asm_var(char *name);
@@ -39,12 +39,14 @@ void print_asm_var(asm_var * str);
 void print_all_asm_var();
 
 // code generator
-int asm_write(program *program, unsigned int force_stdout);
+int asm_write(program *program, int force_stdout);
 int asm_write_program(program *program);
 int asm_write_fn_call(fn_call *fn_call);
 int asm_write_fn_args(fn_args *args);
 int asm_write_fn_arg(fn_arg *arg);
+int asm_write_arg(value *val);
 char *asm_write_value(value *val);
-int asm_write_end();
+int asm_write_defun(fn_call *fn_call);
+int asm_write_end(program *program);
 
 #endif

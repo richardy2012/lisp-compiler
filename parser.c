@@ -9,9 +9,7 @@ char *source = NULL;
 
 void parse_ws() {
     while(parser_pos < strlen(source)) {
-        if(parser_getch() == ' '  ||
-           parser_getch() == '\t' ||
-           parser_getch() == '\n')
+        if(is_ws(parser_getch()))
             parser_pos++;
         else
             break;
@@ -29,7 +27,7 @@ value *parse_value() {
     value *val = malloc(sizeof(value));
     if(isalpha(ch)) {
         char *string = malloc(2);
-        unsigned int ssize = 1;
+        int ssize = 1;
         string[0] = ch;
         parser_pos++;
         while(isalpha(parser_getch())) {
@@ -47,7 +45,7 @@ value *parse_value() {
         ch = parser_getch();
         
         char *string = malloc(2);
-        unsigned int ssize = 1;
+        int ssize = 1;
         string[0] = ch;
         parser_pos++;
         while(parser_getch() != startch) {
@@ -77,7 +75,7 @@ value *parse_value() {
         }
         
         char *string = malloc(2);
-        unsigned int ssize = 1;
+        int ssize = 1;
         string[0] = ch;
         parser_pos++;
         while(isdigit(parser_getch())) {
@@ -102,12 +100,51 @@ value *parse_value() {
         if(block == NULL) { free(val); return NULL; }
         val->val.block = block;
         val->type = VALUE_BLOCK_TYPE;
+    } else if (ch == '[') {
+        array *arr = parse_array();
+        if(arr == NULL) { free(val); return NULL; }
+        val->val.array = arr;
+        val->type = VALUE_ARRAY_TYPE;
     } else {
         printf("Expected value, got %c\n", ch);
         free(val);
         return NULL;
     }
     return val;
+}
+
+array *parse_array() {
+    if(parser_getch() != '[') {
+        printf("Expected array start [\n");
+        return NULL;
+    }
+    parser_pos++;
+    
+    array *arr = malloc(sizeof(array));
+    arr->first = NULL;
+    arr->last = NULL;
+    if(parser_getch() == ']') {
+        parser_pos++;
+        return arr;
+    }
+    
+    while(parser_pos < strlen(source) && is_ws(parser_getch())) {
+        parse_ws();
+        value *val = parse_value();
+        if(val == NULL) return NULL;
+        array_item *item = malloc(sizeof(array_item));
+        item->val = val;
+        item->next = NULL;
+        if(arr->last == NULL) {
+            arr->first = arr->last = item;
+        } else {
+            arr->last = item;
+            arr->last->next = item;
+        }
+        if(parser_getch() == ']') break;
+    }
+    
+    return arr;
 }
 
 fn_arg *parse_fn_arg() {
@@ -130,7 +167,7 @@ fn_args *parse_fn_args() {
     }
     fn_arg *first = parse_fn_arg();
     fn_arg *last = first;
-    while(parser_getch() == ' ' && parser_getch() != ')') {
+    while(is_ws(parser_getch()) && parser_getch() != ')') {
         parse_ws();
         fn_arg *arg = parse_fn_arg();
         if(arg == NULL) {
@@ -167,7 +204,7 @@ fn_call *parse_fn_call() {
         return NULL;
     }
     
-    unsigned int isize = 1;
+    int isize = 1;
     while(isalnum(parser_getch())) {
         name = realloc(name, isize + 1);
         name[isize] = source[parser_pos++];
@@ -183,6 +220,9 @@ fn_call *parse_fn_call() {
     
     if(parser_getch() == ')') {
         parser_pos++;
+        call->args = malloc(sizeof(fn_args));
+        call->args->first = NULL;
+        call->args->last = NULL;
         return call;
     }
     

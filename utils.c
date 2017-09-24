@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include "utils.h"
 
-unsigned int mopen_stdout = 0;
+int mopen_stdout = 0;
 void mopen(char *argv[]) {
     mopen_status = 1;
     pid_t pid;
@@ -34,7 +34,7 @@ void mopen(char *argv[]) {
     }
 }
 
-unsigned int print_debug = 0;
+int print_debug = 0;
 int deprintf(const char *restrict fmt, ...)
 {
     if(!print_debug) return 0;

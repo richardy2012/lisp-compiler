@@ -1,6 +1,8 @@
 #ifndef AST_H
 #define AST_H
 
+// ast value
+struct array;
 struct fn_call;
 struct block;
 typedef struct {
@@ -8,6 +10,7 @@ typedef struct {
         int nint;
         float nfloat;
         char *string;
+        struct array *array;
         struct fn_call *fn_call;
         struct block *block;
     } val;
@@ -19,8 +22,23 @@ typedef struct {
 #define VALUE_IDENT_TYPE  3
 #define VALUE_CALL_TYPE   4
 #define VALUE_BLOCK_TYPE  5
+#define VALUE_ARRAY_TYPE  6
 void value_destroy(value *val);
 
+// item
+struct array_item;
+typedef struct array_item {
+    value *val;
+    struct array_item *next;
+} array_item;
+void array_item_destroy(array_item *array_item);
+
+typedef struct array {
+    array_item *first, *last;
+} array;
+void array_destroy(array *array);
+
+// functions
 struct fn_arg;
 typedef struct fn_arg {
     value *val;
@@ -46,11 +64,13 @@ inline int is_op(char op) {
 }
 void fn_call_destroy(fn_call *call);
 
+// block
 typedef struct block {
     fn_call *first, *last;
 } block;
 void block_destroy(block *block);
 
+// program
 typedef struct {
     fn_call *first, *last;
 } program;

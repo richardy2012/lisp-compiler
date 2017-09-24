@@ -37,8 +37,8 @@ int main(int argc, char *argv[]) {
     if(argc < 2)
         goto usage;
     
-    unsigned int i;
-    unsigned int asm_stdout = 0;
+    int i;
+    int asm_stdout = 0;
     for( i = 0 ; i < argc ; i ++ ) {
         if(argv[i][0] == '-') {
             if(strcmp(argv[i], "-o") == 0) {
