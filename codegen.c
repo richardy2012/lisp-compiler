@@ -4,6 +4,8 @@
 #include "codegen.h"
 #include "utils.h"
 
+asm_fn *asm_fn_first = NULL, *asm_fn_last = NULL;
+
 // compiler function variables
 void asm_fn_add(char *name, fn_call *fn_call) {
     asm_fn *fn = malloc(sizeof(asm_fn));
@@ -138,7 +140,7 @@ void print_asm_var(asm_var *as) {
     } else if(as->type == ASM_VAR_NINT_TYPE) {
         fprintf(asm_file, "    .long %i\n", as->value.nint);
     } else {
-        printf("WARNING: Unrecognized asm_var type %i\n", as->type);
+        error("Unrecognized asm_var type %i\n", as->type);
     }
 }
 
@@ -159,7 +161,7 @@ int asm_write(program *program, int force_stdout) {
     } else {
         asm_file = fopen(outputs,"wb");
         if(asm_file == NULL) {
-            printf("Unable to open %s for writing assembly\n",outputs);
+            error("Unable to open %s for writing assembly\n",outputs);
             return 1;
         }
     }
@@ -215,9 +217,7 @@ int asm_write_defun(fn_call *fn_call) {
     array_item *item = args->first->next->val->val.array->first;
     while(item != NULL) {
         if(item->val->type != VALUE_CALL_TYPE || item->val->val.fn_call->args->first == NULL) {
-            printf("defun expects an array of arguments [(type name) ...]\n");
-            free(scope);
-            return 1;
+            error("defun expects an array of arguments ((type name) ...)\n");
         }
         char *vname = malloc(1 + strlen(scope) + 1 + strlen(item->val->val.fn_call->args->first->val->val.string) + 1);
         strcpy(vname, "V");
@@ -231,10 +231,7 @@ int asm_write_defun(fn_call *fn_call) {
         } else if(strcmp(item->val->val.fn_call->name, "str") == 0) {
             // TODO
         } else {
-            printf("Cannot even\n");
-            free(vname);
-            free(scope);
-            return 1;
+            error("Unknown type name %s\n", item->val->val.fn_call->name);
         }
         item = item->next;
     }
@@ -440,7 +437,7 @@ int asm_write_fn_call(fn_call *fn_call) {
             return 0;
         }
         if(args->first->next == NULL) {
-            printf("Binary operator %c requires 2 arguments.\n", operator);
+            error("Binary operator %c requires 2 arguments.\n", operator);
             return 1;
         }
         if(asm_write_fn_arg(args->first->next)) return 1;
@@ -498,7 +495,7 @@ int asm_write_fn_call(fn_call *fn_call) {
         } else if (strcmp(fn_call->name, "and") == 0 || strcmp(fn_call->name, "or") == 0) {
             fprintf(asm_file, "    %s %%ebx, %%eax\n", fn_call->name);
         } else {
-            printf("Unrecognized operator %c\n", operator);
+            error("Unrecognized operator %c\n", operator);
             return 1;
         }
         fprintf(asm_file, "    pushl %%eax\n");
@@ -510,16 +507,16 @@ int asm_write_fn_call(fn_call *fn_call) {
     strcmp(fn_call->name, "defstr")    == 0
     ) {
         if(args->first->next == NULL) {
-            printf("define function expects 2 arguments\n");
+            error("define function expects 2 arguments\n");
             return 1;
         }
         if(args->first->val->type != VALUE_IDENT_TYPE) {
-            printf("define function expects identifier as first argument\n");
+            error("define function expects identifier as first argument\n");
             return 1;
         }
         #define EXPECT_TYPE_BY_NAME(x,y,z) if(strcmp(fn_call->name, x) == 0 && args->first->next->val->type != y && \
                                            args->first->next->val->type != VALUE_CALL_TYPE) \
-            {   printf("%s expects %s type for value %s\n", x, z, args->first->val->val.string); return 1; }
+            {   error("%s expects %s type for value %s\n", x, z, args->first->val->val.string); return 1; }
         EXPECT_TYPE_BY_NAME("defint", VALUE_NINT_TYPE, "integer");
         EXPECT_TYPE_BY_NAME("defptr", VALUE_NINT_TYPE, "integer");
         EXPECT_TYPE_BY_NAME("deffloat", VALUE_NFLOAT_TYPE, "float");
@@ -542,13 +539,13 @@ int asm_write_fn_call(fn_call *fn_call) {
             else if(type == VALUE_STR_TYPE)
                 add_asm_str(args->first->next->val->val.string, name);
             else {
-                printf("Unsupported asm value type: %i\n", type);
+                error("Unsupported asm value type: %i\n", type);
                 return 1;
             }
         } else { // redefinition
             #define EXPECT_TYPE(x,y,z) if(as->type == x && args->first->next->val->type != y && \
                                           args->first->next->val->type != VALUE_CALL_TYPE) \
-            {   printf("Expected %s type for value %s on redefinition\n", z, args->first->val->val.string); return 1; }
+            {   error("Expected %s type for value %s on redefinition\n", z, args->first->val->val.string); return 1; }
             deprintf("NAME:%s\n", name);
             EXPECT_TYPE(ASM_VAR_NINT_TYPE, VALUE_NINT_TYPE, "integer");
             EXPECT_TYPE(ASM_VAR_NFLOAT_TYPE, VALUE_NFLOAT_TYPE, "float");
@@ -569,7 +566,7 @@ int asm_write_fn_call(fn_call *fn_call) {
             } else if (as->type == ASM_VAR_STRING_TYPE) {
                 // TODO
                 if(strlen(as->value.string) > strlen(args->first->next->val->val.string)) {
-                    printf("Cannot redefine a static string to a bigger string.\n");
+                    error("Cannot redefine a static string to a bigger string.\n");
                 }
             }
             free(name);
@@ -577,17 +574,17 @@ int asm_write_fn_call(fn_call *fn_call) {
     } else if (strcmp(fn_call->name, "defun") == 0) {
         fn_args *args = fn_call->args;
         if(args->first == NULL || args->first->next == NULL || args->first->next->next == NULL) {
-            printf("defun expects at least 3 arguments\n");
+            error("defun expects at least 3 arguments\n");
             return 1;
         }
         if(args->first->next->val->type != VALUE_ARRAY_TYPE) {
-            printf("defun expects an array of arguments [(type, name) ...]\n");
+            error("defun expects an array of arguments ((type name) ...)\n");
             return 1;
         }
         asm_fn_add(args->first->val->val.string, fn_call);
     } else if (strcmp(fn_call->name, "if") == 0 || strcmp(fn_call->name, "while") == 0) {
         if(args->first == NULL || args->first->next == NULL) {
-            printf("%s expects at least 2 function arguments\n", fn_call->name);
+            error("%s expects at least 2 function arguments\n", fn_call->name);
             return 1;
         }
         int label_then = asm_label_length++,
@@ -623,13 +620,13 @@ int asm_write_fn_call(fn_call *fn_call) {
         fprintf(asm_file, "l%i:\n", label_end);
     } else if (strcmp(fn_call->name, "asm") == 0) {
          if(args->first == NULL || args->first->val->type != VALUE_STR_TYPE) {
-            printf("asm function expects string argument\n");
+            error("asm function expects string argument\n");
             return 1;
         }
         fprintf(asm_file, "    %s\n", args->first->next->val->val.string);
     } else if (strcmp(fn_call->name, "ptr") == 0) {
         if(args->first == NULL) {
-            printf("ptr function expects variable\n");
+            error("ptr function expects variable\n");
             return 1;
         }
         asm_write_fn_arg(args->first);
@@ -637,7 +634,7 @@ int asm_write_fn_call(fn_call *fn_call) {
         fprintf(asm_file, "    push (%%eax)\n");
     } else if (strcmp(fn_call->name, "addr") == 0) {
         if(args->first == NULL || args->first->val->type != VALUE_IDENT_TYPE) {
-            printf("addr function expects identifier variable\n");
+            error("addr function expects identifier variable\n");
             return 1;
         }
         fprintf(asm_file, "    push $V%s_%s\n", scope == NULL ? "" : scope, args->first->val->val.string);
@@ -706,7 +703,7 @@ int asm_write_fn_arg(fn_arg *arg) {
 int asm_write_arg(value *val) {
     char *s = asm_write_value(val);
     if(s == NULL) {
-        printf("Expected value for fn_arg\n");
+        error("Expected value for fn_arg\n");
         return 1;
     } else if (strlen(s) == 0) {
         return 0;
@@ -720,12 +717,12 @@ int asm_write_arg(value *val) {
         strcat(id, val->val.string);
         asm_var *as = get_asm_var(id);
         if(as == NULL) {
-            printf("Variable %s does not exist\n", id);
+            error("Variable %s does not exist\n", id);
             return 1;
         }
         if(as->type == ASM_VAR_NINT_TYPE || as->type == ASM_VAR_NFLOAT_TYPE) {
-             fprintf(asm_file, "    mov %s, %%edi\n", s);
-             fprintf(asm_file, "    pushl (%%edi)\n");
+             fprintf(asm_file, "    mov %s, %%edx\n", s);
+             fprintf(asm_file, "    pushl (%%edx)\n");
         } else {
             fprintf(asm_file, "    push %s\n", s);
         }
@@ -751,22 +748,32 @@ char *asm_write_value(value *val) {
         char *n;
         if(val->val.nint == 0) {
             n = malloc(3);
-            n[0] = '$';
-            n[1] = '0';
-            n[2] = '\0';
+            strcpy(n, "$0");
         } else {
             n = malloc((int)floor(log10(abs(val->val.nint))) + 2);
             sprintf(n, "$%i", val->val.nint);
         }
         return n;
     } else if (val->type == VALUE_IDENT_TYPE) {
-        char *name = malloc(2 + (scope == NULL ? 0 : strlen(scope)) + 1 + strlen(val->val.string) + 2);
-        strcpy(name, "$V");
-        if(scope != NULL)
-            strcat(name, scope);
-        strcat(name, "_");
-        strcat(name, val->val.string);
-        return name;
+        char *name;
+        // boolean keywords
+        if(strcmp(val->val.string, "false") == 0) {
+            name = malloc(3);
+            strcpy(name, "$0");
+        } else if(strcmp(val->val.string, "true") == 0) {
+            name = malloc(3);
+            strcpy(name, "$1");
+        }
+        // actual identifiers
+        else {
+            name = malloc(2 + (scope == NULL ? 0 : strlen(scope)) + 1 + strlen(val->val.string) + 2);
+            strcpy(name, "$V");
+            if(scope != NULL)
+                strcat(name, scope);
+            strcat(name, "_");
+            strcat(name, val->val.string);
+            return name;
+        }
     } else if (val->type == VALUE_CALL_TYPE) {
         if(asm_write_fn_call(val->val.fn_call)) return NULL;
         return "";

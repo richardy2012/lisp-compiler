@@ -45,3 +45,12 @@ int deprintf(const char *restrict fmt, ...)
     va_end(ap);
     return ret;
 }
+
+void error(const char *restrict fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stdout, fmt, ap);
+    va_end(ap);
+    exit(1);
+}

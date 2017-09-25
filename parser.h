@@ -17,9 +17,9 @@ inline int is_ws(char ch) {
            ch == '\t' ||
            ch == '\n';
 }
-value *parse_value();
-array *parse_array();
-fn_arg *parse_fn_arg();
+value *parse_value(int is_args);
+array *parse_array(char start, char end);
+fn_arg *parse_fn_arg(int is_args);
 fn_args *parse_fn_args();
 fn_call *parse_fn_call();
 void parse_ws();

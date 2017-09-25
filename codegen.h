@@ -15,7 +15,7 @@ typedef struct asm_fn {
     fn_call *fn_call;
     struct asm_fn *next;
 } asm_fn;
-asm_fn *asm_fn_first = NULL, *asm_fn_last = NULL;
+extern asm_fn *asm_fn_first, *asm_fn_last;
 void asm_fn_add(char *name, fn_call *fn_call);
 
 // compiler string variables
