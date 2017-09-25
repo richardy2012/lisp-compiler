@@ -27,15 +27,14 @@ value *parse_value(int is_args) {
     deprintf("%c\n", ch);
     value *val = malloc(sizeof(value));
     if(isalpha(ch)) {
-        char *string = malloc(2);
-        int ssize = 1;
-        string[0] = ch;
-        parser_pos++;
-        while(isalpha(parser_getch())) {
+        char *string = calloc(1,2);
+        int ssize = 0;
+        while(parser_pos < strlen(source) && isalpha(parser_getch())) {
             string = realloc(string, ssize + 1);
             string[ssize] = source[parser_pos++];
             ssize++;
         }
+        string = realloc(string, ssize + 1);
         string[ssize] = '\0';
         
         val->val.string = string;
@@ -45,15 +44,14 @@ value *parse_value(int is_args) {
         parser_pos++;
         ch = parser_getch();
         
-        char *string = malloc(2);
-        int ssize = 1;
-        string[0] = ch;
-        parser_pos++;
-        while(parser_getch() != startch) {
+        char *string = calloc(1,2);
+        int ssize = 0;
+        while(parser_pos < strlen(source) && parser_getch() != startch) {
             string = realloc(string, ssize + 1);
             string[ssize] = source[parser_pos++];
             ssize++;
         }
+        string = realloc(string, ssize + 1);
         string[ssize] = '\0';
         deprintf("STRING %s\n", string);
         
@@ -75,15 +73,14 @@ value *parse_value(int is_args) {
             ch = parser_getch();
         }
         
-        char *string = malloc(2);
-        int ssize = 1;
-        string[0] = ch;
-        parser_pos++;
-        while(isdigit(parser_getch())) {
+        char *string = calloc(1,2);
+        int ssize = 0;
+        while(parser_pos < strlen(source) && isdigit(parser_getch())) {
             string = realloc(string, ssize + 1);
             string[ssize] = source[parser_pos++];
             ssize++;
         }
+        string = realloc(string, ssize + 1);
         string[ssize] = '\0';
         
         val->val.nint = atoi(string) * neg;
@@ -152,7 +149,7 @@ array *parse_array(char start, char end) {
     
     while(parser_pos < strlen(source) && is_ws(parser_getch()) && parser_getch() != end) {
         parse_ws();
-        value *val = parse_value(0);
+        val = parse_value(0);
         if(val == NULL) {
             free(arr);
             return NULL;
@@ -171,15 +168,16 @@ array *parse_array(char start, char end) {
 
 fn_arg *parse_fn_arg(int is_args) {
     deprintf("PARSE_FN_ARG\n");
-    value *val = NULL;
-    if(is_args) {
-        val = parse_value(1);
-    } else {
-        val = parse_value(0);
-    }
-    if(val == NULL) return NULL;
     fn_arg *arg = malloc(sizeof(fn_arg));
-    arg->val = val;
+    if(is_args) {
+        arg->val = parse_value(1);
+    } else {
+        arg->val = parse_value(0);
+    }
+    if(arg->val == NULL) {
+        free(arg);
+        return NULL;
+    }
     arg->next = NULL;
     return arg;
 }

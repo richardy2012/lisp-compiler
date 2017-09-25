@@ -224,12 +224,10 @@ int asm_write_defun(fn_call *fn_call) {
         strcat(vname, scope);
         strcat(vname, "_");
         strcat(vname, item->val->val.fn_call->args->first->val->val.string);
-        if(strcmp(item->val->val.fn_call->name, "int") == 0) {
+        if(strcmp(item->val->val.fn_call->name, "int") == 0 || strcmp(item->val->val.fn_call->name, "str") == 0) {
             add_asm_nint(0, vname);
         } else if(strcmp(item->val->val.fn_call->name, "float") == 0) {
             add_asm_nfloat(0, vname);
-        } else if(strcmp(item->val->val.fn_call->name, "str") == 0) {
-            // TODO
         } else {
             error("Unknown type name %s\n", item->val->val.fn_call->name);
         }
