@@ -493,7 +493,14 @@ int asm_write_fn_call(fn_call *fn_call) {
             }
             return 0;
         } else if (strcmp(fn_call->name, "and") == 0 || strcmp(fn_call->name, "or") == 0) {
-            fprintf(asm_file, "    %s %%ebx, %%eax\n", fn_call->name);
+            fprintf(asm_file, "    %sl %%ebx, %%eax\n", fn_call->name);
+            fn_arg *curr = args->first->next->next;
+            while(curr != NULL) {
+                asm_write_fn_arg(curr);
+                fprintf(asm_file, "    popl %%ebx\n");
+                fprintf(asm_file, "    %sl %%ebx, %%eax\n", fn_call->name);
+                curr = curr->next;
+            }
         } else {
             error("Unrecognized operator %c\n", operator);
             return 1;
