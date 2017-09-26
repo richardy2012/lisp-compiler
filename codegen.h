@@ -7,6 +7,8 @@
 // compiler
 FILE *asm_file;
 char outputs[256]; // .s file
+int asm_lib;
+int asm_nostdlib;
 
 // compiler function variables
 struct asm_fn;
@@ -49,14 +51,14 @@ void print_asm_var(asm_var * str);
 void print_all_asm_var();
 
 // code generator
-int asm_write(program *program, int force_stdout);
-int asm_write_program(program *program);
-int asm_write_fn_call(fn_call *fn_call);
-int asm_write_fn_args(fn_args *args);
-int asm_write_fn_arg(fn_arg *arg);
-int asm_write_arg(value *val);
+void asm_write(program *program, int force_stdout);
+void asm_write_program(program *program);
+void asm_write_fn_call(fn_call *fn_call);
+void asm_write_fn_args(fn_args *args);
+void asm_write_fn_arg(fn_arg *arg);
+void asm_write_arg(value *val);
 char *asm_write_value(value *val);
-int asm_write_defun(fn_call *fn_call);
-int asm_write_end(program *program);
+void asm_write_defun(fn_call *fn_call);
+void asm_write_end(program *program);
 
 #endif

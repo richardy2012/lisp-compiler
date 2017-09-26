@@ -24,6 +24,8 @@ int make_binary() {
         printf("assembler returned with exit code %i\n", mopen_status);
         return 1;
     }
+    if(asm_lib)
+        return 0;
     char *argv_ld[] = { ld, "-o", outputf, obj, NULL };
     mopen(argv_ld);
     if(mopen_status) {
@@ -64,6 +66,10 @@ int main(int argc, char *argv[]) {
                 strcpy(ld, argv[i + 1]);
             } else if (strcmp(argv[i], "-d") == 0)
                 print_debug = 1;
+            else if (strcmp(argv[i], "-lib") == 0)
+                asm_lib = 1;
+            else if (strcmp(argv[i], "-nostdlib") == 0)
+                asm_nostdlib = 1;
             else if (strcmp(argv[i], "-h") == 0)
                 goto usage;
          }
@@ -115,18 +121,16 @@ int main(int argc, char *argv[]) {
     }
     
     deprintf("------------\n");
-    int status = asm_write(program, asm_stdout);
-    if(!status) {
-        status = make_binary();
-    }
+    asm_write(program, asm_stdout);
+    make_binary();
     
     // clean
     free(source);
     program_destroy(program);
     flush_asm_var();
-    return status;
+    return 0;
 
 usage:
-    printf("usage: %s [-a] [-as assembler] [-ld linker] [-d] [-o output] source\n", argv[0]);
+    printf("usage: %s [-a] [-as assembler] [-ld linker] [-lib] [-d] [-o output] source\n", argv[0]);
     exit(1);
 }

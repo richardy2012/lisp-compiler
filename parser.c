@@ -10,7 +10,16 @@ int is_in_defun = 0; // HACKY way to parse defun's arguments
 
 void parse_ws() {
     while(parser_pos < strlen(source)) {
-        if(is_ws(parser_getch()))
+        char ch = parser_getch();
+        if(ch == ';') {
+            parser_pos++;
+            while(parser_pos < strlen(source)) {
+                parser_pos++;
+                if(parser_getch() == '\n') { parser_pos++; break; }
+            }
+            ch = parser_getch();
+        }
+        if(is_ws(ch))
             parser_pos++;
         else
             break;
@@ -199,6 +208,7 @@ fn_args *parse_fn_args() {
         fn_arg *arg;
         if(is_in_defun && argn == 1) {
             arg = parse_fn_arg(1);
+            is_in_defun = 0; // ensure it only parses second arg of defun
         } else {
             arg = parse_fn_arg(0);
         }
@@ -219,8 +229,8 @@ fn_call *parse_fn_call() {
     deprintf("FN_CALL\n");
     
     if(parser_getch() != '(') {
-        error("Expected ( in function call start\n");
         deprintf("%c\n", parser_getch());
+        error("Expected ( in function call start\n");
         return NULL;
     }
     parser_pos++;
@@ -238,7 +248,7 @@ fn_call *parse_fn_call() {
     }
     
     int isize = 1;
-    while(isalnum(parser_getch())) {
+    while(isalnum(parser_getch()) || is_op(parser_getch())) {
         name = realloc(name, isize + 1);
         name[isize] = source[parser_pos++];
         isize++;
@@ -271,10 +281,6 @@ fn_call *parse_fn_call() {
     call->next = NULL;
     parse_ws();
     
-    if(strcmp(name, "defun") == 0) {
-        is_in_defun = 0;
-    }
-    
     if(parser_getch() != ')') {
         error("Expected ) in function call end\n");
         deprintf("%c\n", parser_getch());
@@ -300,12 +306,22 @@ block *parse_block() {
     block *block = malloc(sizeof(block));
     
     parse_ws();
+    if(parser_getch() == '}') {
+        parser_pos++;
+        block->first = NULL;
+        block->last = NULL;
+        return block;
+    }
     block->first = parse_fn_call();
     block->last = NULL;
     if(block->first == NULL) {
         return block;
     }
     parse_ws();
+    if(parser_getch() == '}') {
+        parser_pos++;
+        return block;
+    }
     
     fn_call *cur = block->first;
     while(parser_getch() != '}') {

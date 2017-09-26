@@ -17,12 +17,20 @@ TEST_FILES = tests/printf.bin \
              tests/functions.bin
 .PHONY: tests
 
+# compiler
 %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 all: main.o ast.o utils.o parser.o codegen.o
 	gcc $(CFLAGS) $(LDFLAGS) -o lisp $^ $(LIBS)
 
+# stdlib:
+libs/stdlib.o: libs/stdlib.lisp
+	./lisp -nostdlib -lib $(LISP_FLAGS) $^
+
+stdlib: libs/stdlib.o
+
+# tests
 %.bin: %.lisp
 	@./lisp $(LISP_FLAGS) -o $@ $<
 	@./$@ > ./$<.result; \
@@ -43,6 +51,7 @@ clean_tests:
 	@rm -f tests/*.o
 	@rm -f tests/*.s
 
+# clean
 clean:
 	rm -rf *.o
 	rm -f lisp
