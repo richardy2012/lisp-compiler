@@ -1,12 +1,29 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <ctype.h>
 #include "parser.h"
 #include "utils.h"
 
 char *source = NULL;
-int is_in_defun = 0; // HACKY way to parse defun's arguments
+int is_in_defun = 0; // bit of a HACKY way to parse defun's arguments
+
+static inline int is_ws(char ch) {
+    return ch == ' '  ||
+           ch == '\t' ||
+           ch == '\n';
+}
+
+static inline int isdigit(char ch) {
+    return '0' <= ch && ch <= '9';
+}
+
+static int is_iden_ch(char ch) {
+    return (33 <= ch && ch <= 126) &&
+           ch != '(' && ch != ')'  &&
+           ch != '[' && ch != ']'  &&
+           ch != '{' && ch != '}'  &&
+           ch != '\'' && ch != '"';
+}
 
 void parse_ws() {
     while(parser_pos < strlen(source)) {
@@ -35,20 +52,7 @@ value *parse_value(int is_args) {
     char ch = parser_getch();
     deprintf("%c\n", ch);
     value *val = malloc(sizeof(value));
-    if(isalpha(ch)) {
-        char *string = calloc(1,2);
-        int ssize = 0;
-        while(parser_pos < strlen(source) && isalpha(parser_getch())) {
-            string = realloc(string, ssize + 1);
-            string[ssize] = source[parser_pos++];
-            ssize++;
-        }
-        string = realloc(string, ssize + 1);
-        string[ssize] = '\0';
-        
-        val->val.string = string;
-        val->type = VALUE_IDENT_TYPE;
-    } else if (ch == '"' || ch == '\'') {
+    if (ch == '"' || ch == '\'') {
         char startch = ch;
         parser_pos++;
         ch = parser_getch();
@@ -95,6 +99,19 @@ value *parse_value(int is_args) {
         val->val.nint = atoi(string) * neg;
         deprintf("Number %i\n",val->val.nint);
         val->type = VALUE_NINT_TYPE;
+    } else if(is_iden_ch(ch)) {
+        char *string = calloc(1,2);
+        int ssize = 0;
+        while(parser_pos < strlen(source) && is_iden_ch(parser_getch())) {
+            string = realloc(string, ssize + 1);
+            string[ssize] = source[parser_pos++];
+            ssize++;
+        }
+        string = realloc(string, ssize + 1);
+        string[ssize] = '\0';
+        
+        val->val.string = string;
+        val->type = VALUE_IDENT_TYPE;
     } else if (ch == '(') {
         if(is_args) {
             deprintf("VALARGS\n");
@@ -237,7 +254,7 @@ fn_call *parse_fn_call() {
     
     char ch = parser_getch();
     char *name;
-    if(isalpha(ch) || is_op(ch)) {
+    if(is_iden_ch(ch)) {
         name = malloc(2);
         name[0] = ch;
         name[1] = 0;
@@ -248,7 +265,7 @@ fn_call *parse_fn_call() {
     }
     
     int isize = 1;
-    while(isalnum(parser_getch()) || is_op(parser_getch())) {
+    while(is_iden_ch(parser_getch())) {
         name = realloc(name, isize + 1);
         name[isize] = source[parser_pos++];
         isize++;

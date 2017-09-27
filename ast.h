@@ -56,13 +56,6 @@ typedef struct fn_call {
     char *name;
     struct fn_call *next;
 } fn_call;
-inline int is_op(char op) {
-    return
-        op == '+' || op == '-' ||
-        op == '*' || op == '/' || op == '%' ||
-        op == '=' || op == '<' || op == '>' ||
-        op == '!';
-}
 void fn_call_destroy(fn_call *call);
 
 // block

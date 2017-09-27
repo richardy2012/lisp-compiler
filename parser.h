@@ -12,11 +12,6 @@ inline char parser_getch() {
     if(parser_pos >= strlen(source)) return '\0';
     return source[parser_pos];
 }
-inline int is_ws(char ch) {
-    return ch == ' '  ||
-           ch == '\t' ||
-           ch == '\n';
-}
 value *parse_value(int is_args);
 array *parse_array(char start, char end);
 fn_arg *parse_fn_arg(int is_args);

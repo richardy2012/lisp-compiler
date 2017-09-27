@@ -20,7 +20,7 @@
 })
 
 ; string functions
-(defun strat ((str string) (int n)) {
+(defun char ((str string) (int n)) {
     (defptr chr (+ string n))
     (asm "mov #chr#, %eax")
     (asm "mov #chr#, %ebx")
@@ -33,9 +33,9 @@
 
 (defun strlen ((str string)) {
     (defint n 0)
-    (defint chr (strat string 0))
+    (defint chr (char string 0))
     (while (!= chr 0) {
-        (define chr (strat string n))
+        (define chr (char string n))
         (define n (+ n 1))
     })
     (return n)
@@ -43,22 +43,26 @@
 
 ; number functions
 (defun itoa ((int n)) {
-    (defptr string 0)
+    (resvstr string 11)
+    (defint n (abs n))
     (defint mod 0)
+    (defint length 0)
     (while (> n 0) {
         (define mod (% n 10))
-        ; TODO
         (define n (/ n 10))
+        (define length (+ length 1))
     })
     (return string)
 })
 
 (defun abs ((int n)) {
-    (if (< n 0) {
-        (return (- n))
-    } {
-        (return n)
-    })
+    ; TODO: convert this to lisp
+    (asm "mov #n#, %eax")
+    (asm "mov (%eax), %eax")
+    (asm "movl %eax, %ebx")
+    (asm "negl %eax")
+    (asm "cmovl %ebx, %eax")
+    (asm "pushl %eax")
 })
 
 ; print functions

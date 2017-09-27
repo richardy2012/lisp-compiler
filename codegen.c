@@ -4,9 +4,17 @@
 #include "codegen.h"
 #include "utils.h"
 
-asm_fn *asm_fn_first = NULL, *asm_fn_last = NULL;
+static inline int is_op(char op) {
+    return
+        op == '+' || op == '-' ||
+        op == '*' || op == '/' || op == '%' ||
+        op == '=' || op == '<' || op == '>' ||
+        op == '!';
+}
+
 
 // compiler function variables
+asm_fn *asm_fn_first = NULL, *asm_fn_last = NULL;
 void asm_fn_add(char *name, fn_call *fn_call) {
     asm_fn *fn = malloc(sizeof(asm_fn));
     fn->name = name;
@@ -439,23 +447,38 @@ void asm_write_fn_call(fn_call *fn_call) {
     
     // keywords, operators
     if( (strlen(fn_call->name) == 1 && is_op(fn_call->name[0])) ||
+        strcmp(fn_call->name, ">>>") == 0 || strcmp(fn_call->name, "<<<") == 0 ||
         strcmp(fn_call->name, "and") == 0 || strcmp(fn_call->name, "or") == 0 ||
+        strcmp(fn_call->name, "xor") == 0 ||
         strcmp(fn_call->name, "!=") == 0 ) {
         char operator = fn_call->name[0];
         asm_write_fn_arg(args->first);
         if(operator == '-' && args->first->next == NULL) { // negative function
             fprintf(asm_file, "    popl %%eax\n");
-            fprintf(asm_file, "    neg %%eax\n");
-            fprintf(asm_file, "    push %%eax\n");
+            fprintf(asm_file, "    negl %%eax\n");
+            fprintf(asm_file, "    pushl %%eax\n");
             return;
         }
         if(args->first->next == NULL)
             error("Binary operator %c requires 2 arguments.\n", operator);
         asm_write_fn_arg(args->first->next);
+        if(strcmp(fn_call->name, ">>>") == 0 || strcmp(fn_call->name, "<<<") == 0) {
+            // TODO this doesnt work
+            fprintf(asm_file, "    popl %%eax\n");
+            fprintf(asm_file, "    popl %%ebx\n");
+            fprintf(asm_file, "    movb %%bl, %%cl\n"); // lowest 8 bit of ebx
+            if(strcmp(fn_call->name, ">>>") == 0) {
+                fprintf(asm_file, "    sarl %%cl, %%eax\n");
+            } else {
+                fprintf(asm_file, "    sall %%cl, %%eax\n");
+            }
+            fprintf(asm_file, "    push %%eax\n");
+            return;
+        }
         fprintf(asm_file, "    popl %%ebx\n");
         fprintf(asm_file, "    popl %%eax\n");
         if(operator == '/' || operator == '%') {
-            fprintf(asm_file, "    xor %%edx, %%edx\n");
+            fprintf(asm_file, "    xorl %%edx, %%edx\n");
             fprintf(asm_file, "    cdq\n");
             fprintf(asm_file, "    idivl %%ebx\n");
         }
@@ -505,7 +528,9 @@ void asm_write_fn_call(fn_call *fn_call) {
                 fprintf(asm_file, "    push %%eax\n");
             }
             return;
-        } else if (strcmp(fn_call->name, "and") == 0 || strcmp(fn_call->name, "or") == 0) {
+        } else if (strcmp(fn_call->name, "and") == 0 ||
+                   strcmp(fn_call->name, "or") == 0  ||
+                   strcmp(fn_call->name, "xor") == 0 ) {
             fprintf(asm_file, "    %sl %%ebx, %%eax\n", fn_call->name);
             fn_arg *curr = args->first->next->next;
             while(curr != NULL) {
@@ -591,7 +616,8 @@ void asm_write_fn_call(fn_call *fn_call) {
             error("resvstr requires identifier argument\n");
         if(args->first->next->val->type != VALUE_NINT_TYPE)
             error("resvstr requires integer argument\n");
-        reserve_asm_var(args->first->next->val->val.nint, args->first->val->val.string);
+        char *name = asm_get_variable_name(args->first->val->val.string);
+        reserve_asm_var(args->first->next->val->val.nint, name);
     } else if (strcmp(fn_call->name, "defun") == 0) {
         fn_args *args = fn_call->args;
         if(args->first == NULL || args->first->next == NULL || args->first->next->next == NULL)

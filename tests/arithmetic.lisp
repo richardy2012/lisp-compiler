@@ -9,3 +9,8 @@
 (println (itoa (+ -5 -10)))
 (println (itoa (/ -10 5)))
 (println (itoa (- 10)))
+
+(println (itoa (= 10 10)))
+(println (itoa (< 9 10)))
+(println (itoa (> 89 10)))
+(println (itoa (< 0 -1)))
