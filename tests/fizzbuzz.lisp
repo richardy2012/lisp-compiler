@@ -1,5 +1,5 @@
 (define n 1)
-(while (< n 100) {
+(while (< n 101) {
     (if (and (= (% n 5) 0) (= (% n 3) 0)) {
         (println "FizzBuzz")
     } (if (= (% n 3) 0) {

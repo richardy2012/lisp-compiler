@@ -4,7 +4,7 @@
     (asm "mov #code#, %ebx")
     (asm "mov (%ebx), %ebx")
     (asm "int $0x80")
-    (return 0)
+    (asm "push %eax")
 })
 
 (defun syswrite ((int fd) (str buf) (int len)) {
@@ -43,26 +43,35 @@
 
 ; number functions
 (defun itoa ((int n)) {
-    (resvstr string 11)
-    (defint n (abs n))
-    (defint mod 0)
-    (defint length 0)
-    (while (> n 0) {
-        (define mod (% n 10))
-        (define n (/ n 10))
-        (define length (+ length 1))
+    ; TODO: fix me
+    (resvstr string 12)
+    (if (< n 10) {
+        (setptr (+ (addr string) 0) (+ n 48))
+        (setptr (+ (addr string) 1) 0)
+        (return string)
     })
-    (return string)
+    (setptr (+ (addr string) 11) (+ (% n 10) 48))
+    (defint length 10)
+    (defint mod 0)
+    (defint x (/ (abs n) 10))
+    (while (> x 10) {
+        (define mod (% x 10))
+        (define x (/ x 10))
+        (setptr (+ (addr string) length) (+ mod 48)) ; '0' = 48
+        (define length (- length 1))
+    })
+    (if (< n 0) {
+        (setptr (+ (addr string) length) 45) ; '-' = 48
+    })
+    (sysexit length)
+    (return (+ (addr string) length))
 })
 
 (defun abs ((int n)) {
-    ; TODO: convert this to lisp
-    (asm "mov #n#, %eax")
-    (asm "mov (%eax), %eax")
-    (asm "movl %eax, %ebx")
-    (asm "negl %eax")
-    (asm "cmovl %ebx, %eax")
-    (asm "pushl %eax")
+    (if (< n 0) {
+        (return (- n))
+    })
+    (return n)
 })
 
 ; print functions
@@ -72,6 +81,9 @@
 })
 
 (defun println ((str string)) {
-    (defint length (strlen string))
-    (return (syswrite 0 string length))
+    (print string)
+    (syswrite 0 "\n" 1)
+    (return 0)
 })
+
+(println (itoa 10))

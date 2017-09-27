@@ -193,7 +193,7 @@ void asm_write_program(program *program) {
     }
     fn_call *call = program->first;
     while(call != NULL) {
-        asm_write_fn_call(call);
+        asm_write_fn_call(call, 1);
         call = call->next;
     }
     asm_write_end(program);
@@ -440,7 +440,7 @@ void asm_write_end(program *program) {
 }
 
 int asm_label_length = 0;
-void asm_write_fn_call(fn_call *fn_call) {
+void asm_write_fn_call(fn_call *fn_call, int is_top_fn) {
     // TODO external calls
     fn_args *args = fn_call->args;
     deprintf("%s\n", fn_call->name);
@@ -451,6 +451,7 @@ void asm_write_fn_call(fn_call *fn_call) {
         strcmp(fn_call->name, "and") == 0 || strcmp(fn_call->name, "or") == 0 ||
         strcmp(fn_call->name, "xor") == 0 ||
         strcmp(fn_call->name, "!=") == 0 ) {
+        if(is_top_fn) return;
         char operator = fn_call->name[0];
         asm_write_fn_arg(args->first);
         if(operator == '-' && args->first->next == NULL) { // negative function
@@ -510,23 +511,18 @@ void asm_write_fn_call(fn_call *fn_call) {
             }
         } else if(strcmp(fn_call->name, "!=") == 0 || operator == '=' || operator == '<' || operator == '>') {
             fprintf(asm_file, "    cmpl %%eax, %%ebx\n");
-            if(operator == '=' || strcmp(fn_call->name, "!=") == 0) {
-                // https://www.aldeid.com/wiki/X86-assembly/Instructions/pushf
-                fprintf(asm_file, "    pushf\n");
-                fprintf(asm_file, "    pop %%eax\n");
-                // get binary bit : (number >> position) & 1
-                fprintf(asm_file, "    shr $6, %%eax\n"); // bit 6 == ZF
-                fprintf(asm_file, "    and $1, %%eax\n");
-                if(strcmp(fn_call->name, "!=") == 0)
-                    fprintf(asm_file, "    xor $1, %%eax\n");
-                fprintf(asm_file, "    push %%eax\n");
-            } else if(operator == '<' || operator == '>') {
-                fprintf(asm_file, "    mov $0, %%eax\n");
-                fprintf(asm_file, "    adc $0, %%eax\n");
-                if(operator == '<') // invert
-                    fprintf(asm_file, "    xor $1, %%eax\n");
-                fprintf(asm_file, "    push %%eax\n");
+            // https://stackoverflow.com/questions/27284895/how-to-compare-a-signed-value-and-an-unsigned-value-in-x86-assembly
+            if(operator == '=') {
+                fprintf(asm_file, "    sete %%al\n");
+            } else if (strcmp(fn_call->name, "!=") == 0) {
+                fprintf(asm_file, "    setne %%al\n");
+            } else if(operator == '>') {
+                fprintf(asm_file, "    setl %%al\n");
+            } else if (operator == '<') {
+                fprintf(asm_file, "    setg %%al\n");
             }
+            fprintf(asm_file, "    movzb %%al, %%eax\n");
+            fprintf(asm_file, "    push %%eax\n");
             return;
         } else if (strcmp(fn_call->name, "and") == 0 ||
                    strcmp(fn_call->name, "or") == 0  ||
@@ -539,6 +535,7 @@ void asm_write_fn_call(fn_call *fn_call) {
                 fprintf(asm_file, "    %sl %%ebx, %%eax\n", fn_call->name);
                 curr = curr->next;
             }
+            return;
         } else
             error("Unrecognized operator %c\n", operator);
         fprintf(asm_file, "    pushl %%eax\n");
@@ -642,9 +639,9 @@ void asm_write_fn_call(fn_call *fn_call) {
         asm_write_fn_arg(args->first);
         fprintf(asm_file, "    pop %%eax\n");
         fprintf(asm_file, "    cmp $0, %%eax\n");
-        fprintf(asm_file, "    jg l%i\n", label_then);
+        fprintf(asm_file, "    jne l%i\n", label_then);
         if(args->first->next->next != NULL) {
-            fprintf(asm_file, "    jle l%i\n", label_else);
+            fprintf(asm_file, "    je l%i\n", label_else);
         }
         fprintf(asm_file, "    jmp l%i\n", label_end);
         fprintf(asm_file, "l%i:\n", label_then);
@@ -660,7 +657,6 @@ void asm_write_fn_call(fn_call *fn_call) {
         }
         fprintf(asm_file, "l%i:\n", label_end);
     } else if (strcmp(fn_call->name, "asm") == 0) {
-    
          if(args->first == NULL || args->first->val->type != VALUE_STR_TYPE)
             error("asm function expects string argument\n");
         
@@ -689,7 +685,13 @@ void asm_write_fn_call(fn_call *fn_call) {
                 fputc(str[i], asm_file);
         }
         fputc('\n', asm_file);
-        
+    } else if (strcmp(fn_call->name, "setptr") == 0) {
+        if(args->first == NULL || args->first->next == NULL)
+            error("ptr function expects 2 arguments\n");
+        asm_write_fn_arg(args->first->next);
+        asm_write_fn_arg(args->first);
+        fprintf(asm_file, "    pop %%eax\n");
+        fprintf(asm_file, "    pop (%%eax)\n");
     } else if (strcmp(fn_call->name, "ptr") == 0) {
         if(args->first == NULL)
             error("ptr function expects variable\n");
@@ -749,7 +751,6 @@ void asm_write_fn_call(fn_call *fn_call) {
             fprintf(asm_file, "    pop %%ecx\n");
             fprintf(asm_file, "    movb $0, (%%edx,%%ecx)\n");
         }
-        
     }
     
     // function calls
@@ -761,7 +762,10 @@ void asm_write_fn_call(fn_call *fn_call) {
         else if (strcmp(fn_call->name, "itoa") == 0)            uses_itoa = 1;
         asm_write_fn_args(fn_call->args);
         fprintf(asm_file, "    call %s\n", fn_call->name);
+        if(is_top_fn) fprintf(asm_file, "    pop %%eax\n");
     }
+
+    return;
 }
 
 void asm_write_fn_args(fn_args *args) {
@@ -850,12 +854,12 @@ char *asm_write_value(value *val) {
             return name;
         }
     } else if (val->type == VALUE_CALL_TYPE) {
-        asm_write_fn_call(val->val.fn_call);
+        asm_write_fn_call(val->val.fn_call, 0);
         return "";
     } else if (val->type == VALUE_BLOCK_TYPE) {
         fn_call *cur = val->val.block->first;
         while(cur != NULL) {
-            asm_write_fn_call(cur);
+            asm_write_fn_call(cur, 1);
             cur = cur->next;
         }
         return "";

@@ -53,7 +53,7 @@ void print_all_asm_var();
 // code generator
 void asm_write(program *program, int force_stdout);
 void asm_write_program(program *program);
-void asm_write_fn_call(fn_call *fn_call);
+void asm_write_fn_call(fn_call *fn_call, int is_top_fn);
 void asm_write_fn_args(fn_args *args);
 void asm_write_fn_arg(fn_arg *arg);
 void asm_write_arg(value *val);
